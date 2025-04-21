@@ -10,7 +10,7 @@ from config import *
 from ai_processor import call_gemini_api_for_cleanup
 from doc_formatter import identify_doc_type as recognize_document_type
 from doc_formatter import apply_docx_formatting as format_word_document
-from doc_formatter import DOC_TYPE_FORMATTERS # Import để dùng trong route home
+from doc_formatter import DOC_TYPE_FORMATTERS
 
 app = Flask(__name__)
 CORS(app)
@@ -70,8 +70,6 @@ def generate_docx_route():
 
 @app.route("/", methods=["GET"])
 def home():
-    # Lấy danh sách các key từ DOC_TYPE_FORMATTERS đã import
-    # Lọc bỏ những key có giá trị là None hoặc PlaceholderFormatter
     supported_types = [k for k, v in DOC_TYPE_FORMATTERS.items() if hasattr(v, 'format')]
     return jsonify({
         "message": "API tạo văn bản Word chuẩn VN (v4.1 - Full) sẵn sàng tại /generate",

@@ -1,8 +1,10 @@
+# doc_formatter.py
 import re
 from docx import Document
 from docx.shared import Cm
 from config import MARGIN_TOP, MARGIN_BOTTOM, MARGIN_LEFT_DEFAULT, MARGIN_RIGHT_DEFAULT, MARGIN_LEFT_CONTRACT
 
+# --- PHẦN IMPORT: Đảm bảo import TẤT CẢ các module formatters bạn đã tạo ---
 try:
     from formatters import cong_van, quyet_dinh, chi_thi, thong_bao, ke_hoach, \
                            nghi_quyet, quy_dinh, huong_dan, chuong_trinh, bien_ban, de_an, \
@@ -13,15 +15,16 @@ try:
                            don_nhap_hoc, thoi_khoa_bieu, bang_diem, de_cuong_mh, quy_dinh_nt, thong_bao_nt, \
                            bang_tot_nghiep, giao_trinh, \
                            quy_che, to_trinh, phieu_trinh, bao_cao, giay_moi, phat_bieu, tieu_luan, \
-                           nghi_dinh
+                           nghi_dinh # Đảm bảo tên file và import khớp nhau
 
 except ImportError as e:
-    print(f"Lỗi import formatters: {e}. Đảm bảo các file formatter tồn tại.")
+    print(f"Lỗi import formatters: {e}. Đảm bảo các file formatter tồn tại trong thư mục formatters/ và tên file đúng.")
     class PlaceholderFormatter:
         def format(self, document, data):
             print(f"Warning: Formatter not found. Using basic paragraph.")
             document.add_paragraph(data.get('body', ''))
 
+    # Gán fallback cho TẤT CẢ nếu import lỗi
     cong_van = quyet_dinh = chi_thi = thong_bao = ke_hoach = \
     nghi_quyet = quy_dinh = huong_dan = chuong_trinh = bien_ban = de_an = \
     thong_cao = phuong_an = du_an = cong_dien = ban_ghi_nho = ban_thoa_thuan = \
@@ -33,7 +36,7 @@ except ImportError as e:
     quy_che = to_trinh = phieu_trinh = bao_cao = giay_moi = phat_bieu = tieu_luan = \
     nghi_dinh = PlaceholderFormatter()
 
-
+# --- HÀM NHẬN DIỆN: Giữ nguyên logic nhận diện ---
 def identify_doc_type(title, body):
     body_upper = body.upper()
     title_upper = title.upper()
@@ -115,6 +118,7 @@ def identify_doc_type(title, body):
     return None
 
 
+# --- DICTIONARY ÁNH XẠ: Đảm bảo tất cả các key và value đều đúng ---
 DOC_TYPE_FORMATTERS = {
     "Luat": luat, "NghiQuyetQH": nghi_quyet_qh, "PhapLenh": phap_lenh,
     "NghiDinhQPPL": nghi_dinh_qppl, "QuyetDinhTTg": quyet_dinh_ttg, "ThongTu": thong_tu,
@@ -133,6 +137,7 @@ DOC_TYPE_FORMATTERS = {
     "ThongBaoNT": thong_bao_nt, "BangTotNghiep": bang_tot_nghiep, "GiaoTrinh": giao_trinh,
 }
 
+# --- HÀM ĐIỀU PHỐI: Giữ nguyên logic xử lý fallback ---
 def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
     document = Document()
     section = document.sections[0]
@@ -167,10 +172,8 @@ def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
         formatter_module = cong_van
         doc_type_for_filename = intended_doc_type if intended_doc_type in DOC_TYPE_FORMATTERS and not isinstance(DOC_TYPE_FORMATTERS.get(intended_doc_type), PlaceholderFormatter) else "CongVan"
 
-
     final_formatter_name = getattr(formatter_module, '__name__', 'cong_van')
     doc_type_used_for_formatting = doc_type_for_filename if doc_type_for_filename else "CongVan"
-
 
     if doc_type_used_for_formatting in ["BanGhiNho", "BanThoaThuan", "HopDong"]:
         section.left_margin = MARGIN_LEFT_CONTRACT
