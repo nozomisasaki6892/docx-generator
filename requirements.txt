@@ -3,3 +3,4 @@ python-docx
 flask-socketio
 eventlet
 python-dotenv
+flask-cors
