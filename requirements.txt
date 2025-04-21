@@ -4,3 +4,4 @@ flask-socketio
 eventlet
 python-dotenv
 flask-cors
+requests
