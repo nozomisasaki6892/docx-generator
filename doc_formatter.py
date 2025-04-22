@@ -4,7 +4,13 @@ from docx import Document
 from docx.shared import Cm
 from config import MARGIN_TOP, MARGIN_BOTTOM, MARGIN_LEFT_DEFAULT, MARGIN_RIGHT_DEFAULT, MARGIN_LEFT_CONTRACT
 
-# --- PHẦN IMPORT: Đã XÓA thoi_khoa_bieu, bang_diem ---
+# --- Định nghĩa PlaceholderFormatter ở ngoài ---
+class PlaceholderFormatter:
+    def format(self, document, data):
+        print(f"Warning: PlaceholderFormatter activated. Using basic paragraph.")
+        document.add_paragraph(data.get('body', ''))
+
+# --- Khối Import ---
 try:
     from formatters import cong_van, quyet_dinh, chi_thi, thong_bao, ke_hoach, \
                            nghi_quyet, quy_dinh, huong_dan, chuong_trinh, bien_ban, de_an, \
@@ -16,14 +22,10 @@ try:
                            bang_tot_nghiep, giao_trinh, \
                            quy_che, to_trinh, phieu_trinh, bao_cao, giay_moi, phat_bieu, tieu_luan, \
                            nghi_dinh
+    print("Tất cả formatters đã được import thành công.")
 
 except ImportError as e:
-    print(f"Lỗi import formatters: {e}. Đảm bảo các file formatter tồn tại trong thư mục formatters/ và tên file đúng.")
-    class PlaceholderFormatter:
-        def format(self, document, data):
-            print(f"Warning: Formatter not found. Using basic paragraph.")
-            document.add_paragraph(data.get('body', ''))
-
+    print(f"LỖI IMPORT FORMATTERS: {e}. Sẽ sử dụng Placeholder cho các module lỗi.")
     # Gán fallback cho TẤT CẢ nếu import lỗi
     cong_van = quyet_dinh = chi_thi = thong_bao = ke_hoach = \
     nghi_quyet = quy_dinh = huong_dan = chuong_trinh = bien_ban = de_an = \
@@ -34,12 +36,10 @@ except ImportError as e:
     don_nhap_hoc = de_cuong_mh = quy_dinh_nt = thong_bao_nt = \
     bang_tot_nghiep = giao_trinh = \
     quy_che = to_trinh = phieu_trinh = bao_cao = giay_moi = phat_bieu = tieu_luan = \
-    nghi_dinh = PlaceholderFormatter()
-    # Gán thêm fallback cho những cái đã xóa để đảm bảo không lỗi nếu key vẫn còn sót
-    thoi_khoa_bieu = bang_diem = PlaceholderFormatter()
+    nghi_dinh = PlaceholderFormatter() # Chỉ gán fallback khi có lỗi
 
 
-# --- HÀM NHẬN DIỆN: Đã XÓA logic cho ThoiKhoaBieu, BangDiem ---
+# --- Hàm nhận diện (Giữ nguyên) ---
 def identify_doc_type(title, body):
     body_upper = body.upper()
     title_upper = title.upper()
@@ -48,8 +48,6 @@ def identify_doc_type(title, body):
     if "BẰNG TỐT NGHIỆP" in title_upper or "CHỨNG CHỈ" in title_upper: return "BangTotNghiep"
     if "GIÁO TRÌNH" in title_upper: return "GiaoTrinh"
     if "ĐƠN XIN NHẬP HỌC" in title_upper or "PHIẾU ĐĂNG KÝ NHẬP HỌC" in title_upper: return "DonNhapHoc"
-    # if "THỜI KHÓA BIỂU" in title_upper: return "ThoiKhoaBieu" # Đã xóa
-    # if "BẢNG ĐIỂM" in title_upper or "PHIẾU ĐIỂM" in title_upper: return "BangDiem" # Đã xóa
     if "ĐỀ CƯƠNG MÔN HỌC" in title_upper or "ĐỀ CƯƠNG CHI TIẾT" in title_upper: return "DeCuongMH"
     if "QUY ĐỊNH" in title_upper and ("HỌC SINH" in body_upper or "SINH VIÊN" in body_upper or "NỘI QUY" in body_upper): return "QuyDinhNT"
     if "THÔNG BÁO" in title_upper and ("NHÀ TRƯỜNG" in body_start_upper or "KHOA" in body_start_upper or "SINH VIÊN" in body_upper): return "ThongBaoNT"
@@ -121,7 +119,7 @@ def identify_doc_type(title, body):
     return None
 
 
-# --- DICTIONARY ÁNH XẠ: Đã XÓA ThoiKhoaBieu, BangDiem ---
+# --- DICTIONARY ÁNH XẠ (Giữ nguyên) ---
 DOC_TYPE_FORMATTERS = {
     "Luat": luat, "NghiQuyetQH": nghi_quyet_qh, "PhapLenh": phap_lenh,
     "NghiDinhQPPL": nghi_dinh_qppl, "QuyetDinhTTg": quyet_dinh_ttg, "ThongTu": thong_tu,
@@ -141,7 +139,7 @@ DOC_TYPE_FORMATTERS = {
     "ThongBaoNT": thong_bao_nt, "BangTotNghiep": bang_tot_nghiep, "GiaoTrinh": giao_trinh,
 }
 
-# --- HÀM ĐIỀU PHỐI: Đã XÓA logic set lề riêng cho ThoiKhoaBieu, BangDiem ---
+# --- HÀM ĐIỀU PHỐI: Sửa lỗi NameError ---
 def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
     document = Document()
     section = document.sections[0]
@@ -152,35 +150,59 @@ def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
 
     formatter_module = None
     doc_type_for_filename = None
+    is_placeholder_used = False # Cờ để biết có dùng placeholder không
 
+    # Ưu tiên 1: Thử dùng loại văn bản nhận diện được
     if recognized_doc_type:
         formatter_module = DOC_TYPE_FORMATTERS.get(recognized_doc_type)
+        # Kiểm tra xem module lấy được có thực sự là formatter hợp lệ không
+        # (placeholder cũng có hàm format nên cần check type)
         if formatter_module and not isinstance(formatter_module, PlaceholderFormatter):
             doc_type_for_filename = recognized_doc_type
             print(f"Sử dụng formatter cho loại NHẬN DIỆN: formatters.{getattr(formatter_module, '__name__', 'N/A')}")
         else:
-            print(f"Formatter cho loại NHẬN DIỆN '{recognized_doc_type}' không hợp lệ hoặc không tìm thấy.")
-            formatter_module = None
+            if formatter_module is None:
+                 print(f"Formatter cho loại NHẬN DIỆN '{recognized_doc_type}' không tìm thấy trong DOC_TYPE_FORMATTERS.")
+            else: # Là PlaceholderFormatter
+                 print(f"Formatter cho loại NHẬN DIỆN '{recognized_doc_type}' là Placeholder (có thể do import lỗi trước đó).")
+                 is_placeholder_used = True # Đánh dấu là đã gặp placeholder do lỗi import
+            formatter_module = None # Reset để thử loại dự định
 
+    # Ưu tiên 2: Nếu không thành công với loại nhận diện, thử dùng loại dự định
     if formatter_module is None and intended_doc_type:
         formatter_module = DOC_TYPE_FORMATTERS.get(intended_doc_type)
         if formatter_module and not isinstance(formatter_module, PlaceholderFormatter):
             doc_type_for_filename = intended_doc_type
             print(f"Sử dụng formatter cho loại DỰ ĐỊNH: formatters.{getattr(formatter_module, '__name__', 'N/A')}")
+            is_placeholder_used = False # Đã tìm thấy formatter thật
         else:
-            print(f"Formatter cho loại DỰ ĐỊNH '{intended_doc_type}' cũng không hợp lệ hoặc không tìm thấy.")
-            formatter_module = None
+            if formatter_module is None:
+                 print(f"Formatter cho loại DỰ ĐỊNH '{intended_doc_type}' không tìm thấy trong DOC_TYPE_FORMATTERS.")
+            else: # Là PlaceholderFormatter
+                 print(f"Formatter cho loại DỰ ĐỊNH '{intended_doc_type}' là Placeholder (có thể do import lỗi trước đó).")
+                 is_placeholder_used = True
+            formatter_module = None # Reset để dùng fallback
 
+    # Ưu tiên 3: Nếu cả hai đều không được, dùng Công văn làm mặc định cuối cùng
     if formatter_module is None:
-        print("Sử dụng formatter mặc định: formatters.cong_van")
-        formatter_module = cong_van
-        doc_type_for_filename = intended_doc_type if intended_doc_type in DOC_TYPE_FORMATTERS and not isinstance(DOC_TYPE_FORMATTERS.get(intended_doc_type), PlaceholderFormatter) else "CongVan"
+        # Nếu trước đó đã gặp placeholder do lỗi import, thì giờ cũng dùng placeholder
+        if is_placeholder_used:
+            print("Sử dụng formatter Placeholder do lỗi import trước đó.")
+            formatter_module = PlaceholderFormatter() # Tạo instance mới để chắc chắn nó tồn tại
+            # Tên file vẫn cố gắng giữ theo intended nếu hợp lệ
+            doc_type_for_filename = intended_doc_type if intended_doc_type in DOC_TYPE_FORMATTERS else "Fallback"
+        else:
+            # Chỉ dùng cong_van khi import hoàn toàn thành công nhưng cả recognized và intended đều không khớp key
+            print("Sử dụng formatter mặc định: formatters.cong_van")
+            formatter_module = cong_van
+            doc_type_for_filename = intended_doc_type if intended_doc_type in DOC_TYPE_FORMATTERS and not isinstance(DOC_TYPE_FORMATTERS.get(intended_doc_type), PlaceholderFormatter) else "CongVan"
 
 
-    final_formatter_name = getattr(formatter_module, '__name__', 'cong_van')
+    final_formatter_name = getattr(formatter_module, '__name__', 'PlaceholderFormatter')
     doc_type_used_for_formatting = doc_type_for_filename if doc_type_for_filename else "CongVan"
 
 
+    # Thiết lập lề dựa trên loại formatter cuối cùng được chọn
     if doc_type_used_for_formatting in ["BanGhiNho", "BanThoaThuan", "HopDong"]:
         section.left_margin = MARGIN_LEFT_CONTRACT
         section.right_margin = MARGIN_RIGHT_DEFAULT
@@ -204,6 +226,7 @@ def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
         section.left_margin = MARGIN_LEFT_DEFAULT
         section.right_margin = MARGIN_RIGHT_DEFAULT
 
+    # Gọi hàm format của module đã chọn
     if hasattr(formatter_module, 'format'):
         try:
             formatter_module.format(document, data)
@@ -213,9 +236,11 @@ def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
              traceback.print_exc()
              document.add_paragraph(f"Lỗi định dạng văn bản loại '{doc_type_used_for_formatting}': {e}")
     else:
-        print(f"Lỗi: Module {final_formatter_name} thiếu hàm format(document, data).")
+        # Trường hợp này ít xảy ra hơn nếu dùng Placeholder đúng cách
+        print(f"Lỗi: Module {final_formatter_name} không có hàm format(document, data).")
         document.add_paragraph(f"Lỗi: Không thể định dạng văn bản loại '{doc_type_used_for_formatting}'.")
 
 
     print("Định dạng Word hoàn tất.")
+    # Trả về document và loại dùng cho tên file
     return document, doc_type_for_filename
