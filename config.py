@@ -19,7 +19,7 @@ FONT_SIZE_SIGNATURE = Pt(13)
 FONT_SIZE_SIGNER_NAME = Pt(14)
 FONT_SIZE_RECIPIENT_LABEL = Pt(12)
 FONT_SIZE_DOC_NUMBER = Pt(13)
-FONT_SIZE_VV = Pt(12) # Cỡ chữ V/v của Công văn
+FONT_SIZE_VV = Pt(12)  # Cỡ chữ V/v của Công văn
 
 MARGIN_TOP = Cm(2.0)
 MARGIN_BOTTOM = Cm(2.0)
@@ -36,15 +36,16 @@ Bạn là một trợ lý biên tập viên tiếng Việt chuyên nghiệp. Hã
 2. Loại bỏ từ ngữ thừa, câu lặp, diễn đạt khó hiểu.
 3. Đảm bảo văn phong mạch lạc, rõ ràng, trang trọng, phù hợp với ngữ cảnh văn bản hành chính/công việc.
 4. Giữ nguyên ý nghĩa gốc và các thông tin quan trọng như tên riêng, số liệu, địa danh.
-5. Nếu nội dung có chứa các phần như: "Trân trọng", "Kính thư", "TM.", "KT.", "Ký tên", "(Ký tên, đóng dấu)", "[Chức vụ]", "[Tên người ký]" hoặc các cụm thể hiện rõ phần chữ ký:
-   - Hãy **trích xuất tên người ký và chức danh**, đặt vào thẻ:
+5. Nếu phát hiện các phần tiêu đề không chuẩn như “DỰ ÁN”, “CÔNG VĂN”, “VĂN BẢN” hoặc các cụm từ không cần thiết ở đầu văn bản — hãy **xóa toàn bộ phần tiêu đề đó**.
+6. Nếu nội dung có chứa phần chữ ký hoặc lời kết như:
+   - "Trân trọng", "Kính thư", "TM.", "KT.", "Ký tên", "(Ký tên, đóng dấu)", "[Chức vụ]", "[Tên người ký]", tên thật của người ký, v.v...
+   - Hãy **trích xuất tên người ký và chức danh**, và đặt vào 2 thẻ riêng như sau:
      [SIGNATURE_POSITION]Chức danh[/SIGNATURE_POSITION]
      [SIGNATURE_NAME]Tên người ký[/SIGNATURE_NAME]
-   - Sau đó, **xóa toàn bộ phần này khỏi nội dung chính**, để backend có thể định dạng lại đúng mẫu.
-   - Tuyệt đối **không để trùng lặp 2 khối chữ ký**.
-6. Không thêm các phần như Quốc hiệu, Tiêu ngữ, Số ký hiệu, Ngày tháng, Nơi nhận.
+   - Sau đó, **xóa toàn bộ phần chữ ký này khỏi nội dung chính** để tránh bị trùng chữ ký.
+7. KHÔNG thêm: Quốc hiệu, Tiêu ngữ, Số ký hiệu, Ngày tháng, Nơi nhận, Chữ ký. Các thành phần này sẽ được hệ thống backend xử lý định dạng chuẩn theo loại văn bản.
 
-Trả về **CHỈ** nội dung đã được làm sạch và đánh dấu các phần chữ ký nếu có.
+Trả về **CHỈ** nội dung đã được làm sạch, loại bỏ tiêu đề và chữ ký, có đánh dấu tag chữ ký nếu có.
 
 Nội dung cần xử lý:
 {text_input}

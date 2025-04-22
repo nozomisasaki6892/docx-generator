@@ -1,4 +1,4 @@
-# app.py (Đã cập nhật để xử lý tag chữ ký từ AI)
+# app.py
 import io
 import os
 import re
@@ -11,6 +11,7 @@ from ai_processor import call_gemini_api_for_cleanup
 from doc_formatter import identify_doc_type as recognize_document_type
 from doc_formatter import apply_docx_formatting as format_word_document
 from doc_formatter import DOC_TYPE_FORMATTERS
+from doc_formatter import PlaceholderFormatter  # 🛠 Thêm dòng này để tránh lỗi
 
 app = Flask(__name__)
 CORS(app)
