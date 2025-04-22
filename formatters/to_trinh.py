@@ -1,68 +1,111 @@
 # formatters/to_trinh.py
 import re
+import time
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from utils import set_paragraph_format, set_run_format, add_run_with_format
 try:
     from .common_elements import format_basic_header, format_signature_block, format_recipient_list
 except ImportError:
-    from common_elements import format_basic_header, format_signature_block, format_recipient_list
+    # Fallback nếu chạy độc lập
+    def format_basic_header(document, data, doc_type): pass
+    def format_signature_block(document, data): pass
+    def format_recipient_list(document, data): pass
+
 from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT
 
 def format(document, data):
     print("Bắt đầu định dạng Tờ trình...")
-    title = data.get("title", "Tờ trình về việc ABC")
-    body = data.get("body", "Nội dung tờ trình...")
-    recipients_to = data.get("recipients_to", "Kính gửi: [Lãnh đạo/Cấp trên]") # Người nhận Tờ trình
-    issuing_org = data.get("issuing_org", "TÊN ĐƠN VỊ TRÌNH").upper()
+    title = data.get("title", "Tờ trình về việc Phê duyệt/Xin chủ trương...")
+    body = data.get("body", "Kính gửi:...\nCăn cứ...\n[Cơ quan trình] kính trình [Cấp trên] xem xét, phê duyệt nội dung sau:\n1. Sự cần thiết...\n2. Nội dung đề nghị...\n3. Kiến nghị...\nKính trình [Cấp trên] xem xét, quyết định.")
+    doc_type_label = "TỜ TRÌNH"
 
-    # 1. Header (Tên đơn vị trình bên trái)
-    data['issuing_org'] = issuing_org
-    format_basic_header(document, data, "ToTrinh") # Header căn trái CQBH
+    # 1. Header (Cơ quan trình)
+    format_basic_header(document, data, "ToTrinh")
 
-    # 2. Tên loại TỜ TRÌNH
-    p_tenloai = document.add_paragraph("TỜ TRÌNH")
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
-    add_run_with_format(p_tenloai, "TỜ TRÌNH", size=FONT_SIZE_TITLE, bold=True, uppercase=True)
+    # 2. Tiêu đề
+    p_title = document.add_paragraph(doc_type_label)
+    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
+    set_run_format(p_title.runs[0], size=FONT_SIZE_TITLE, bold=True)
 
-    # 3. Trích yếu
-    tt_title = title.replace("Tờ trình", "").strip()
-    p_title = document.add_paragraph(f"Về việc {tt_title}")
-    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    add_run_with_format(p_title, f"Về việc {tt_title}", size=Pt(14), bold=True)
+    # Trích yếu nội dung tờ trình
+    subject = title.replace("Tờ trình", "").strip()
+    if subject.lower().startswith("về việc"):
+        subject = subject.split(" ", 2)[-1]
+    p_subject = document.add_paragraph(f"V/v: {subject}")
+    set_paragraph_format(p_subject, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    set_run_format(p_subject.runs[0], size=Pt(14), bold=True) # Trích yếu đậm
 
-    # 4. Kính gửi
-    p_kg = document.add_paragraph(recipients_to)
-    set_paragraph_format(p_kg, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12)) # Kính gửi căn giữa
-    add_run_with_format(p_kg, recipients_to, size=FONT_SIZE_DEFAULT, bold=True)
 
-    # 5. Nội dung Tờ trình
+    # 3. Kính gửi
+    recipient = data.get("recipient_main", "Kính gửi: [Tên Lãnh đạo/Cơ quan cấp trên]")
+    p_kg = document.add_paragraph(recipient)
+    set_paragraph_format(p_kg, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_after=Pt(12))
+    set_run_format(p_kg.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
+
+
+    # 4. Nội dung Tờ trình
     body_lines = body.split('\n')
-    for line in body_lines:
+    processed_indices = set()
+
+    # Xử lý căn cứ nếu có
+    for i, line in enumerate(body_lines):
         stripped_line = line.strip()
-        if stripped_line:
-            p = document.add_paragraph()
-            # Nhận diện mục đánh số
-            is_numbered_item = re.match(r'^\d+\.\s+', stripped_line)
-            align = WD_ALIGN_PARAGRAPH.JUSTIFY
-            left_indent = Cm(0.5) if is_numbered_item else Cm(0)
-            first_indent = Cm(0) if is_numbered_item else FIRST_LINE_INDENT
+        if not stripped_line: continue
+        if stripped_line.lower().startswith("căn cứ"):
+            p = document.add_paragraph(stripped_line)
+            set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5, space_after=Pt(0))
+            set_run_format(p.runs[0], size=FONT_SIZE_DEFAULT, italic=True)
+            processed_indices.add(i)
+        elif any(l.strip().lower().startswith("căn cứ") for l in body_lines[:i]):
+             break
+    if processed_indices: document.add_paragraph()
 
-            set_paragraph_format(p, alignment=align, left_indent=left_indent, first_line_indent=first_indent, line_spacing=1.5, space_after=Pt(6))
-            add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT, bold=bool(is_numbered_item))
+    # Xử lý nội dung chính
+    for i, line in enumerate(body_lines):
+        if i in processed_indices: continue
+        stripped_line = line.strip()
+        if not stripped_line: continue
+        p = document.add_paragraph()
 
-    # 6. Lời kết (Kính trình...)
-    p_closing = document.add_paragraph(f"{issuing_org} kính trình [Lãnh đạo] xem xét, phê duyệt.")
-    set_paragraph_format(p_closing, alignment=WD_ALIGN_PARAGRAPH.LEFT, first_line_indent=FIRST_LINE_INDENT, space_before=Pt(6), space_after=Pt(6))
-    add_run_with_format(p_closing, p_closing.text, size=FONT_SIZE_DEFAULT, italic=True)
+        is_numbered_item = re.match(r'^(\d+)\.\s+', stripped_line) # 1., 2.
+        is_bullet = stripped_line.startswith("-") or stripped_line.startswith("+") or stripped_line.startswith("*") or stripped_line.startswith("•")
+        is_ending = "kính trình" in stripped_line.lower() and "xem xét" in stripped_line.lower()
+
+        align = WD_ALIGN_PARAGRAPH.JUSTIFY
+        left_indent = Cm(0)
+        first_indent = FIRST_LINE_INDENT if not (is_numbered_item or is_bullet) else Cm(0)
+        is_bold = bool(is_numbered_item) # Mục lớn có thể đậm
+        is_italic = False
+        size = FONT_SIZE_DEFAULT
+        space_before = Pt(0)
+        space_after = Pt(6)
+        line_spacing = 1.5
+
+        if is_numbered_item:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            space_before = Pt(6)
+        elif is_bullet:
+             align = WD_ALIGN_PARAGRAPH.LEFT
+             left_indent = Cm(0.5)
+             first_indent = Cm(-0.5) # Hanging indent
+        elif is_ending:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            first_indent = FIRST_LINE_INDENT
+            is_bold = True # Câu kết đậm
+            space_before = Pt(12)
+
+        set_paragraph_format(p, alignment=align, left_indent=left_indent, first_line_indent=first_indent, line_spacing=line_spacing, space_before=space_before, space_after=space_after)
+        add_run_with_format(p, stripped_line, size=size, bold=is_bold, italic=is_italic)
 
 
-    # 7. Chữ ký (Người đứng đầu đơn vị trình)
+    # 5. Chữ ký (Thủ trưởng cơ quan trình)
+    if 'signer_title' not in data: data['signer_title'] = "THỦ TRƯỞNG CƠ QUAN"
+    if 'signer_name' not in data: data['signer_name'] = "[Họ và tên]"
     format_signature_block(document, data)
 
-    # 8. Nơi nhận
-    if not data.get('recipients'):
-        data['recipients'] = ["- Như trên;", "- Lưu: VT, [Đơn vị soạn]."]
+    # 6. Nơi nhận (Thường có Nơi nhận để biết ai duyệt)
+    if 'recipients' not in data: data['recipients'] = ["- Như kính gửi;", "- Lưu: VT, ...;"]
     format_recipient_list(document, data)
 
     print("Định dạng Tờ trình hoàn tất.")

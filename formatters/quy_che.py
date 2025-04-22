@@ -1,49 +1,57 @@
 # formatters/quy_che.py
 import re
+import time
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from utils import set_paragraph_format, set_run_format, add_run_with_format
 try:
-    from .common_elements import format_basic_header # Chỉ dùng nếu là QC độc lập
+    from .common_elements import format_basic_header, format_signature_block, format_recipient_list
 except ImportError:
-    from common_elements import format_basic_header
-from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT, FONT_SIZE_HEADER
+    # Fallback nếu chạy độc lập
+    def format_basic_header(document, data, doc_type): pass
+    def format_signature_block(document, data): pass
+    def format_recipient_list(document, data): pass
+
+from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT
 
 def format(document, data):
     print("Bắt đầu định dạng Quy chế...")
-    title = data.get("title", "Quy chế làm việc của [Tên đơn vị]")
-    body = data.get("body", "Nội dung quy chế...")
-    issuing_org = data.get("issuing_org", "TÊN CƠ QUAN BAN HÀNH").upper()
-    attached_decision = data.get("attached_decision", None)
+    title = data.get("title", "Quy chế Hoạt động/Làm việc/...")
+    # Quy chế thường được ban hành kèm theo Quyết định
+    enactment_info = data.get("enactment_info", "Ban hành kèm theo Quyết định số .../QĐ-... ngày ... tháng ... năm ... của ...")
+    body = data.get("body", "Chương I: QUY ĐỊNH CHUNG\nĐiều 1. Phạm vi điều chỉnh\nĐiều 2. Đối tượng áp dụng...\nChương II: QUY ĐỊNH CỤ THỂ\nĐiều 3...")
+    doc_type_label = "QUY CHẾ"
 
-    # 1. Header (Tùy chọn, thường của CQ ban hành QĐ kèm theo)
-    # Nếu là QC độc lập, có thể thêm header:
-    # data['issuing_org'] = issuing_org
-    # format_basic_header(document, data, "QuyChe")
 
-    # 2. Tên loại QUY CHẾ
-    p_tenloai = document.add_paragraph("QUY CHẾ")
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
-    add_run_with_format(p_tenloai, "QUY CHẾ", size=FONT_SIZE_TITLE, bold=True, uppercase=True)
+    # 1. Header (Cơ quan ban hành Quy chế)
+    format_basic_header(document, data, "QuyChe")
 
-    # 3. Tiêu đề Quy chế
-    qc_title = title.replace("Quy chế", "").strip()
-    p_title = document.add_paragraph(qc_title)
-    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
-    add_run_with_format(p_title, qc_title, size=Pt(14), bold=True) # Tiêu đề QC đậm
 
-    # 4. Dòng kèm theo Quyết định
-    if attached_decision:
-        p_attach = document.add_paragraph(f"(Ban hành kèm theo {attached_decision})")
-        set_paragraph_format(p_attach, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-        add_run_with_format(p_attach, p_attach.text, size=FONT_SIZE_DEFAULT, italic=True)
+    # 2. Tên Quy chế
+    p_title = document.add_paragraph(doc_type_label)
+    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
+    set_run_format(p_title.runs[0], size=FONT_SIZE_TITLE, bold=True)
 
-    # 5. Nội dung (Chương, Điều, Khoản, Điểm)
+    # Tên Quy chế cụ thể
+    rule_name = title.replace("Quy chế", "").strip()
+    p_name = document.add_paragraph(rule_name)
+    set_paragraph_format(p_name, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
+    set_run_format(p_name.runs[0], size=Pt(14), bold=True) # Tên QC đậm
+
+    # Thông tin ban hành kèm theo
+    p_enactment = document.add_paragraph(f"({enactment_info})")
+    set_paragraph_format(p_enactment, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    set_run_format(p_enactment.runs[0], size=FONT_SIZE_DEFAULT, italic=True) # Nghiêng
+
+
+    # 3. Nội dung Quy chế (Chương, Điều, Khoản, Điểm)
     body_lines = body.split('\n')
     for line in body_lines:
         stripped_line = line.strip()
         if not stripped_line: continue
         p = document.add_paragraph()
+
+        # Logic định dạng cơ bản (Tương tự Luật, Nghị định...)
         is_chuong = stripped_line.upper().startswith("CHƯƠNG")
         is_dieu = stripped_line.upper().startswith("ĐIỀU")
         is_khoan = re.match(r'^\d+\.\s+', stripped_line)
@@ -51,29 +59,40 @@ def format(document, data):
 
         align = WD_ALIGN_PARAGRAPH.JUSTIFY
         left_indent = Cm(0)
-        first_indent = FIRST_LINE_INDENT
+        first_indent = FIRST_LINE_INDENT if not (is_chuong or is_dieu or is_khoan or is_diem) else Cm(0)
         is_bold = False
         size = FONT_SIZE_DEFAULT
         space_before = Pt(0)
+        space_after = Pt(6)
+        line_spacing = 1.5
 
         if is_chuong:
             align = WD_ALIGN_PARAGRAPH.CENTER
-            first_indent = Cm(0)
             is_bold = True
             space_before = Pt(12)
+            size = Pt(13)
         elif is_dieu:
             align = WD_ALIGN_PARAGRAPH.LEFT
-            first_indent = Cm(0)
             is_bold = True
             space_before = Pt(6)
+            size = Pt(13)
         elif is_khoan:
             left_indent = Cm(0.5)
-            first_indent = Cm(0)
         elif is_diem:
             left_indent = Cm(1.0)
-            first_indent = Cm(0)
 
-        set_paragraph_format(p, alignment=align, left_indent=left_indent, first_line_indent=first_indent, line_spacing=1.5, space_before=space_before, space_after=Pt(6))
+        set_paragraph_format(p, alignment=align, left_indent=left_indent, first_line_indent=first_indent, line_spacing=line_spacing, space_before=space_before, space_after=space_after)
         add_run_with_format(p, stripped_line, size=size, bold=is_bold)
+
+    # 4. Điều khoản thi hành (Thường là Chương/Điều cuối)
+
+
+    # 5. Chữ ký (Người ký Quyết định ban hành Quy chế)
+    # Chữ ký thường nằm trên Quyết định ban hành, không nằm trên Quy chế kèm theo.
+    # Tuy nhiên, nếu data có thông tin chữ ký cho Quy chế thì thêm vào.
+    if data.get('signer_title') and data.get('signer_name'):
+         document.add_paragraph()
+         format_signature_block(document, data)
+         # format_recipient_list(document, data) # Nơi nhận thường cũng trên QĐ
 
     print("Định dạng Quy chế hoàn tất.")

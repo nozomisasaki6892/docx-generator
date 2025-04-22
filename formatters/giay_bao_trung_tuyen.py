@@ -1,102 +1,134 @@
 # formatters/giay_bao_trung_tuyen.py
-import re
 import time
-from docx.shared import Pt, Cm, Inches
+from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from utils import set_paragraph_format, set_run_format, add_run_with_format
 try:
-    # Có thể dùng Header của trường
-    from .common_elements import format_basic_header, format_signature_block
+    # Giấy báo thường có header, signature riêng
+    from .common_elements import format_recipient_list # Có thể dùng nơi nhận nếu cần gửi nhiều
 except ImportError:
-    from common_elements import format_basic_header, format_signature_block
-from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT, FONT_SIZE_HEADER
+    def format_recipient_list(document, data): pass
+
+from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT, FONT_SIZE_SIGNATURE, FONT_SIZE_SIGNER_NAME, FONT_SIZE_HEADER
+
+def format_gbtt_header(document, data):
+    # Header Giấy báo tương tự header cơ bản NĐ30
+    issuing_org_parent = data.get("issuing_org_parent", "BỘ GIÁO DỤC VÀ ĐÀO TẠO").upper() # Ví dụ
+    issuing_org = data.get("issuing_org", "TRƯỜNG ĐẠI HỌC XYZ").upper()
+    doc_number = data.get("doc_number", "Số:       /GBTT-...")
+    issuing_location = data.get("issuing_location", "Hà Nội")
+    current_date_str = time.strftime(f"ngày %d tháng %m năm %Y")
+
+    header_table = document.add_table(rows=1, cols=2)
+    header_table.autofit = False
+    header_table.allow_autofit = False
+    header_table.columns[0].width = Cm(8.0)
+    header_table.columns[1].width = Cm(8.5)
+
+    # Cột trái: CQ chủ quản, CQ ban hành, Số hiệu
+    cell_left = header_table.cell(0, 0)
+    cell_left._element.clear_content()
+    p_parent = cell_left.add_paragraph(issuing_org_parent)
+    set_paragraph_format(p_parent, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+    set_run_format(p_parent.runs[0], size=FONT_SIZE_HEADER, bold=False)
+    p_org = cell_left.add_paragraph(issuing_org)
+    set_paragraph_format(p_org, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+    set_run_format(p_org.runs[0], size=FONT_SIZE_HEADER, bold=True)
+    p_line_org = cell_left.add_paragraph("_______")
+    set_paragraph_format(p_line_org, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
+    set_run_format(p_line_org.runs[0], size=FONT_SIZE_HEADER, bold=True)
+    p_num = cell_left.add_paragraph(doc_number)
+    set_paragraph_format(p_num, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(6))
+    set_run_format(p_num.runs[0], size=Pt(13))
+
+    # Cột phải: QH, TN, Ngày tháng
+    cell_right = header_table.cell(0, 1)
+    cell_right._element.clear_content()
+    p_qh = cell_right.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
+    set_paragraph_format(p_qh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+    set_run_format(p_qh.runs[0], size=FONT_SIZE_HEADER, bold=True)
+    p_tn = cell_right.add_paragraph("Độc lập - Tự do - Hạnh phúc")
+    set_paragraph_format(p_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+    set_run_format(p_tn.runs[0], size=Pt(13), bold=True)
+    p_line_tn = cell_right.add_paragraph("-" * 20)
+    set_paragraph_format(p_line_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
+    set_run_format(p_line_tn.runs[0], size=Pt(13), bold=True)
+    p_date = cell_right.add_paragraph(f"{issuing_location}, {current_date_str}")
+    set_paragraph_format(p_date, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(6))
+    set_run_format(p_date.runs[0], size=Pt(13), italic=True)
+
+    document.add_paragraph()
+
 
 def format(document, data):
-    print("Bắt đầu định dạng Giấy báo trúng tuyển/nhập học...")
-    # Thông tin thí sinh và trúng tuyển (cần từ data)
-    student = data.get("student", {"name": "[HỌ TÊN THÍ SINH]", "dob": "__/__/____", "id": "[Số báo danh/CCCD]", "score": "...", "major": "[Ngành trúng tuyển]", "program_type": "Đại học chính quy"})
-    enrollment_info = data.get("enrollment", {"time": "[Thời gian nhập học]", "location": "[Địa điểm nhập học]", "required_docs": ["Hồ sơ cần nộp 1", "Hồ sơ cần nộp 2"], "fee": "[Học phí/Kinh phí]"})
-    issuing_org = data.get("issuing_org", "TÊN TRƯỜNG").upper()
-    issuing_org_parent = data.get("issuing_org_parent", None)
+    print("Bắt đầu định dạng Giấy báo trúng tuyển...")
+    title = data.get("title", "GIẤY BÁO TRÚNG TUYỂN VÀ NHẬP HỌC").upper()
+    body = data.get("body", "Hội đồng tuyển sinh... trân trọng thông báo...\nThí sinh:...\nĐã trúng tuyển vào ngành:...\nThời gian nhập học:...\nĐịa điểm:...\nHồ sơ cần chuẩn bị:...")
+    student_name = data.get("student_name", "[Họ và tên thí sinh]")
 
-    # 1. Header trường (Có thể dùng format_basic_header)
-    data['issuing_org'] = issuing_org
-    if issuing_org_parent: data['issuing_org_parent'] = issuing_org_parent
-    # Dùng header căn trái cho trường
-    # format_basic_header(document, data, "GiayBaoTrungTuyen")
-    # Hoặc header đơn giản hơn
-    p_org = document.add_paragraph(issuing_org)
-    set_paragraph_format(p_org, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_org, issuing_org, size=FONT_SIZE_HEADER, bold=True)
-    if issuing_org_parent:
-         p_parent = document.add_paragraph(issuing_org_parent.upper())
-         set_paragraph_format(p_parent, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(0), space_after=Pt(0))
-         add_run_with_format(p_parent, issuing_org_parent, size=Pt(11))
-    p_line_org = document.add_paragraph("-------***-------")
-    set_paragraph_format(p_line_org, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
+    # 1. Header
+    format_gbtt_header(document, data)
+
+    # 2. Tên Giấy báo
+    p_title = document.add_paragraph(title)
+    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(18))
+    set_run_format(p_title.runs[0], size=FONT_SIZE_TITLE, bold=True)
 
 
-    # 2. Ngày tháng, địa điểm
-    p_date_place = document.add_paragraph(f"{data.get('issuing_location', 'Hà Nội')}, ngày {time.strftime('%d')} tháng {time.strftime('%m')} năm {time.strftime('%Y')}")
-    set_paragraph_format(p_date_place, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_after=Pt(12))
-    add_run_with_format(p_date_place, p_date_place.text, size=FONT_SIZE_DEFAULT, italic=True)
+    # 3. Nội dung thông báo
+    body_lines = body.split('\n')
+    for line in body_lines:
+        stripped_line = line.strip()
+        if not stripped_line: continue
+
+        p = document.add_paragraph()
+        # Nội dung giấy báo thường căn trái hoặc đều
+        is_info_line = ":" in stripped_line and len(stripped_line.split(":")[0]) < 40 # Heuristic
+        is_list_item = stripped_line.startswith("-") or stripped_line.startswith("+") or stripped_line.startswith("*")
+
+        align = WD_ALIGN_PARAGRAPH.JUSTIFY
+        first_indent = FIRST_LINE_INDENT
+        left_indent = Cm(0)
+        is_bold = False
+
+        if is_info_line:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            first_indent = Cm(0)
+            parts = stripped_line.split(":", 1)
+            # In đậm phần thông tin thí sinh trúng tuyển
+            if "thí sinh" in parts[0].lower() or "trúng tuyển" in parts[0].lower() or "ngành" in parts[0].lower():
+                 add_run_with_format(p, parts[0] + ":", size=FONT_SIZE_DEFAULT, bold=True)
+                 add_run_with_format(p, parts[1], size=FONT_SIZE_DEFAULT, bold=True)
+                 is_bold = True # Flag để không add run lần nữa
+            else:
+                 add_run_with_format(p, parts[0] + ":", size=FONT_SIZE_DEFAULT)
+                 add_run_with_format(p, parts[1], size=FONT_SIZE_DEFAULT)
+
+        elif is_list_item:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            left_indent = Cm(1.0)
+            first_indent = Cm(-0.5) # Hanging indent
+            add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT)
+        else:
+             add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT)
 
 
-    # 3. Tên Giấy báo
-    title_text = data.get("title", "GIẤY BÁO TRÚNG TUYỂN VÀ NHẬP HỌC")
-    p_tenloai = document.add_paragraph(title_text.upper())
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(12))
-    add_run_with_format(p_tenloai, title_text.upper(), size=FONT_SIZE_TITLE, bold=True, uppercase=True)
+        set_paragraph_format(p, alignment=align, space_after=Pt(6), first_line_indent=first_indent, left_indent=left_indent, line_spacing=1.5)
+        # Chỉ add_run nếu chưa add ở is_info_line
+        # if not is_info_line and not is_list_item:
+        #      run = p.runs[0] if p.runs else p.add_run()
+        #      run.text = stripped_line
+        #      set_run_format(run, size=FONT_SIZE_DEFAULT)
 
-    # 4. Kính gửi (tên thí sinh)
-    p_kg = document.add_paragraph(f"Kính gửi: Em {student['name']}")
-    set_paragraph_format(p_kg, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_after=Pt(6))
-    add_run_with_format(p_kg, p_kg.text, size=FONT_SIZE_DEFAULT, bold=True)
 
-    # 5. Nội dung thông báo trúng tuyển
-    p_content1 = document.add_paragraph()
-    set_paragraph_format(p_content1, first_line_indent=FIRST_LINE_INDENT)
-    add_run_with_format(p_content1, f"Hội đồng tuyển sinh Trường {issuing_org} chúc mừng Em đã trúng tuyển vào học chương trình {student['program_type']} năm {time.strftime('%Y')} của Trường.")
+    # 4. Chữ ký (Thường là Chủ tịch Hội đồng tuyển sinh / Hiệu trưởng)
+    signer_title = data.get("signer_title", "CHỦ TỊCH HỘI ĐỒNG TUYỂN SINH").upper()
+    signer_name = data.get("signer_name", "[Họ và tên]")
 
-    p_details = document.add_paragraph()
-    set_paragraph_format(p_details, left_indent=Cm(1.0), space_after=Pt(6), line_spacing=1.15)
-    add_run_with_format(p_details, f"- Họ và tên: {student['name']}\n", bold=True)
-    add_run_with_format(p_details, f"- Ngày sinh: {student['dob']}\n")
-    add_run_with_format(p_details, f"- Số báo danh/CCCD: {student['id']}\n")
-    add_run_with_format(p_details, f"- Điểm xét tuyển: {student['score']}\n")
-    add_run_with_format(p_details, f"- Ngành trúng tuyển: {student['major']}", bold=True)
+    sig_paragraph = document.add_paragraph()
+    set_paragraph_format(sig_paragraph, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_before=Pt(18), space_after=Pt(0), line_spacing=1.0)
+    add_run_with_format(sig_paragraph, signer_title + "\n\n\n\n\n", size=FONT_SIZE_SIGNATURE, bold=True)
+    add_run_with_format(sig_paragraph, signer_name, size=FONT_SIZE_SIGNER_NAME, bold=True)
 
-    # 6. Thông tin nhập học
-    p_enroll_intro = document.add_paragraph()
-    set_paragraph_format(p_enroll_intro, first_line_indent=FIRST_LINE_INDENT, space_before=Pt(6))
-    add_run_with_format(p_enroll_intro, "Để nhập học, Em cần chuẩn bị và thực hiện các thủ tục sau:")
-
-    p_enroll_time = document.add_paragraph()
-    set_paragraph_format(p_enroll_time, left_indent=Cm(1.0), space_after=Pt(0))
-    add_run_with_format(p_enroll_time, f"1. Thời gian nhập học: {enrollment_info['time']}", bold=True)
-
-    p_enroll_loc = document.add_paragraph()
-    set_paragraph_format(p_enroll_loc, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(0))
-    add_run_with_format(p_enroll_loc, f"2. Địa điểm nhập học: {enrollment_info['location']}")
-
-    p_enroll_docs_label = document.add_paragraph()
-    set_paragraph_format(p_enroll_docs_label, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(0))
-    add_run_with_format(p_enroll_docs_label, "3. Hồ sơ nhập học cần nộp:")
-    for doc in enrollment_info['required_docs']:
-        p_doc_item = document.add_paragraph()
-        set_paragraph_format(p_doc_item, left_indent=Cm(1.5), space_before=Pt(0), space_after=Pt(0), line_spacing=1.0)
-        add_run_with_format(p_doc_item, f"- {doc}")
-
-    p_enroll_fee = document.add_paragraph()
-    set_paragraph_format(p_enroll_fee, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(12))
-    add_run_with_format(p_enroll_fee, f"4. Kinh phí nhập học (tạm thu): {enrollment_info['fee']}")
-
-    # Lời kết
-    p_closing = document.add_paragraph("Đề nghị Em có mặt đầy đủ, đúng thời gian và địa điểm quy định.")
-    set_paragraph_format(p_closing, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6))
-
-    # 7. Chữ ký (Hiệu trưởng/Chủ tịch HĐTS)
-    if not data.get('signer_title'): data['signer_title'] = "HIỆU TRƯỞNG" # Hoặc tương đương
-    format_signature_block(document, data)
 
     print("Định dạng Giấy báo trúng tuyển hoàn tất.")

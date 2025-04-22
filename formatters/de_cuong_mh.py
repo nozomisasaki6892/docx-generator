@@ -3,114 +3,91 @@ import re
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from utils import set_paragraph_format, set_run_format, add_run_with_format
-from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT, FONT_SIZE_HEADER
+from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT
 
 def format(document, data):
     print("Bắt đầu định dạng Đề cương môn học...")
-    # Thông tin môn học
-    course = data.get("course", {
-        "name": "[TÊN MÔN HỌC]", "code": "[Mã HP]", "credits": "...",
-        "prerequisites": "[Môn tiên quyết]", "department": "[Bộ môn phụ trách]", "faculty": "[Khoa]",
-        "lecturer": "[Giảng viên]", "email": "[Email GV]"
-    })
-    # Nội dung đề cương (list các section, mỗi section có title và content)
-    syllabus_content = data.get("syllabus_content", [
-        {"title": "1. Thông tin chung về môn học", "content": ["Tên môn học:", "Mã môn học:", "Số tín chỉ:", "..."]},
-        {"title": "2. Mục tiêu môn học", "content": ["Kiến thức:", "Kỹ năng:", "Thái độ:"]},
-        {"title": "3. Chuẩn đầu ra môn học", "content": ["G1:", "G2:", "..."]},
-        {"title": "4. Nội dung chi tiết môn học", "content": ["Tuần 1: [Nội dung]\n- [Chi tiết 1]\n- [Chi tiết 2]", "Tuần 2: [Nội dung]", "..."]},
-        {"title": "5. Học liệu", "content": ["Giáo trình chính:", "Tài liệu tham khảo:", "..."]},
-        {"title": "6. Đánh giá môn học", "content": ["Thành phần", "Trọng số", "Hình thức", "Điểm chuyên cần:", "Kiểm tra giữa kỳ:", "Thi cuối kỳ:"]}
-    ])
-    issuing_org = data.get("issuing_org", "TÊN TRƯỜNG").upper()
-    faculty = course['faculty'].upper()
+    title = data.get("title", "Đề cương chi tiết môn học ABC")
+    body = data.get("body", "1. Thông tin chung về môn học\n2. Mục tiêu môn học\n3. Nội dung chi tiết...\n4. Tài liệu tham khảo...")
+    university_name = data.get("university_name", "TRƯỜNG ĐẠI HỌC XYZ").upper()
+    faculty_name = data.get("faculty_name", "KHOA CÔNG NGHỆ THÔNG TIN").upper()
 
-    # 1. Header (Tên trường, Khoa)
-    p_org = document.add_paragraph(issuing_org)
-    set_paragraph_format(p_org, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_org, issuing_org, size=FONT_SIZE_HEADER, bold=True)
-    p_faculty = document.add_paragraph(f"KHOA {faculty}")
-    set_paragraph_format(p_faculty, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    add_run_with_format(p_faculty, p_faculty.text, size=Pt(11), bold=True)
+    # 1. Thông tin Trường, Khoa (Căn giữa)
+    p_uni = document.add_paragraph(university_name)
+    set_paragraph_format(p_uni, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+    set_run_format(p_uni.runs[0], size=Pt(13), bold=True)
+
+    p_fac = document.add_paragraph(faculty_name)
+    set_paragraph_format(p_fac, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(18))
+    set_run_format(p_fac.runs[0], size=Pt(13), bold=True)
 
     # 2. Tên Đề cương
     p_title = document.add_paragraph("ĐỀ CƯƠNG CHI TIẾT MÔN HỌC")
-    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
-    add_run_with_format(p_title, p_title.text, size=FONT_SIZE_TITLE, bold=True, uppercase=True)
-    p_course_name = document.add_paragraph(course['name'].upper())
-    set_paragraph_format(p_course_name, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    add_run_with_format(p_course_name, p_course_name.text, size=FONT_SIZE_TITLE, bold=True, uppercase=True)
+    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
+    set_run_format(p_title.runs[0], size=FONT_SIZE_TITLE, bold=True)
 
-    # 3. Thông tin cơ bản môn học (ngoài phần nội dung)
-    p_code = document.add_paragraph(f"Mã môn học: {course['code']}")
-    set_paragraph_format(p_code, space_after=Pt(2))
-    p_credits = document.add_paragraph(f"Số tín chỉ: {course['credits']}")
-    set_paragraph_format(p_credits, space_before=Pt(2), space_after=Pt(2))
-    p_prereq = document.add_paragraph(f"Môn học tiên quyết: {course['prerequisites']}")
-    set_paragraph_format(p_prereq, space_before=Pt(2), space_after=Pt(12))
+    # Tên môn học cụ thể
+    course_name = title.replace("Đề cương chi tiết môn học", "").replace("Đề cương môn học", "").strip()
+    p_name = document.add_paragraph(course_name.upper()) # Tên môn học IN HOA
+    set_paragraph_format(p_name, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(18))
+    set_run_format(p_name.runs[0], size=Pt(14), bold=True)
 
 
-    # 4. Nội dung chi tiết đề cương
-    for section in syllabus_content:
-        section_title = section.get("title", "Nội dung")
-        section_content = section.get("content", [])
+    # 3. Nội dung Đề cương
+    body_lines = body.split('\n')
+    for line in body_lines:
+        stripped_line = line.strip()
+        if not stripped_line: continue
+        p = document.add_paragraph()
 
-        # Tiêu đề mục lớn (1., 2., ...)
-        p_sec_title = document.add_paragraph(section_title)
-        set_paragraph_format(p_sec_title, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(6), space_after=Pt(6))
-        add_run_with_format(p_sec_title, section_title, size=FONT_SIZE_DEFAULT, bold=True)
+        # Logic định dạng cơ bản cho các đề mục đề cương
+        is_section_digit = re.match(r'^(\d+)\.\s+', stripped_line) # Mục 1, 2, 3
+        is_subsection_digit = re.match(r'^(\d+\.\d+\.?)\s+', stripped_line) # Mục 1.1, 1.2
+        is_subsubsection_alpha = re.match(r'^[a-z]\)\s+', stripped_line) # Mục a, b, c
+        is_bullet = stripped_line.startswith("-") or stripped_line.startswith("+") or stripped_line.startswith("*") or stripped_line.startswith("•")
 
-        # Nội dung trong mục
-        if isinstance(section_content, list):
-            for item in section_content:
-                 lines = item.split('\n') # Xử lý xuống dòng trong item
-                 first_line = True
-                 for line in lines:
-                     stripped_line = line.strip()
-                     if stripped_line:
-                         p_item = document.add_paragraph()
-                         # Thụt lề cho nội dung, gạch đầu dòng thụt sâu hơn
-                         is_sub_item = stripped_line.startswith('-') or stripped_line.startswith('+')
-                         left_indent = Cm(1.0) if is_sub_item else Cm(0.5)
-                         first_indent = Cm(0) # Không thụt dòng đầu cho list/nội dung chi tiết
-                         if first_line and not is_sub_item:
-                             first_indent = FIRST_LINE_INDENT # Thụt dòng đầu cho đoạn văn đầu tiên
+        align = WD_ALIGN_PARAGRAPH.JUSTIFY
+        left_indent = Cm(0)
+        first_indent = FIRST_LINE_INDENT if not (is_section_digit or is_subsection_digit or is_subsubsection_alpha or is_bullet) else Cm(0)
+        is_bold = bool(is_section_digit or is_subsection_digit) # Mục lớn đậm
+        is_italic = False
+        size = FONT_SIZE_DEFAULT
+        space_before = Pt(0)
+        space_after = Pt(6)
+        line_spacing = 1.5
 
-                         set_paragraph_format(p_item, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=left_indent, first_line_indent=first_indent, space_before=Pt(0), space_after=Pt(2), line_spacing=1.15)
-                         add_run_with_format(p_item, stripped_line, size=FONT_SIZE_DEFAULT)
-                     first_line = False
-        elif isinstance(section_content, str): # Nếu content là 1 chuỗi lớn
-             p_item = document.add_paragraph(section_content)
-             set_paragraph_format(p_item, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=Cm(0.5), first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6), line_spacing=1.5)
-             add_run_with_format(p_item, section_content, size=FONT_SIZE_DEFAULT)
+        if is_section_digit:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            space_before = Pt(12)
+            size = Pt(13)
+        elif is_subsection_digit:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            left_indent = Cm(0.5) # Thụt lề mục con
+            space_before = Pt(6)
+        elif is_subsubsection_alpha:
+             align = WD_ALIGN_PARAGRAPH.LEFT
+             left_indent = Cm(1.0)
+        elif is_bullet:
+             align = WD_ALIGN_PARAGRAPH.LEFT
+             left_indent = Cm(1.5)
+             first_indent = Cm(-0.5) # Hanging indent
+
+        set_paragraph_format(p, alignment=align, left_indent=left_indent, first_line_indent=first_indent, line_spacing=line_spacing, space_before=space_before, space_after=space_after)
+        add_run_with_format(p, stripped_line, size=size, bold=is_bold, italic=is_italic)
 
 
-    # 5. Ngày tháng và Chữ ký (Trưởng bộ môn, Trưởng khoa)
-    p_date_place_footer = document.add_paragraph(f"{data.get('issuing_location', '........')}, ngày {time.strftime('%d')} tháng {time.strftime('%m')} năm {time.strftime('%Y')}")
-    set_paragraph_format(p_date_place_footer, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_before=Pt(12), space_after=Pt(0))
-    add_run_with_format(p_date_place_footer, p_date_place_footer.text, size=FONT_SIZE_DEFAULT, italic=True)
+    # 4. Thông tin giảng viên, ngày phê duyệt (Nếu có, thường cuối file)
+    # Cần lấy thông tin này từ data
 
-    # Dùng table cho 2 chữ ký
-    sig_table = document.add_table(rows=1, cols=2)
-    sig_table.autofit = False
-    sig_table.columns[0].width = Inches(3.0)
-    sig_table.columns[1].width = Inches(3.0)
+    # Ví dụ phần cuối
+    document.add_paragraph() # Thêm khoảng trống
+    p_approval_loc_date = document.add_paragraph(f"Hà Nội, ngày ...... tháng ...... năm ......")
+    set_paragraph_format(p_approval_loc_date, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_after=Pt(6))
+    set_run_format(p_approval_loc_date.runs[0], size=FONT_SIZE_DEFAULT, italic=True)
 
-    # Chữ ký Trưởng bộ môn
-    cell_tbm = sig_table.cell(0, 0)
-    cell_tbm._element.clear_content()
-    p_tbm_title = cell_tbm.add_paragraph("TRƯỞNG BỘ MÔN")
-    set_paragraph_format(p_tbm_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(60))
-    add_run_with_format(p_tbm_title, "TRƯỞNG BỘ MÔN", bold=True)
-    # Tên Trưởng BM (nếu có)
-
-    # Chữ ký Trưởng khoa
-    cell_tk = sig_table.cell(0, 1)
-    cell_tk._element.clear_content()
-    p_tk_title = cell_tk.add_paragraph("TRƯỞNG KHOA")
-    set_paragraph_format(p_tk_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(60))
-    add_run_with_format(p_tk_title, "TRƯỞNG KHOA", bold=True)
-    # Tên Trưởng khoa (nếu có)
+    # Bảng chữ ký nếu cần (Trưởng Khoa, Giảng viên biên soạn) - Tương tự bảng chữ ký Biên bản
+    # signature_data = data.get('signatures', [{'title':'TRƯỞNG KHOA', 'name':'...'}, {'title':'GIẢNG VIÊN BIÊN SOẠN', 'name':'...'}])
+    # format_signatures_in_table(document, signature_data) # Cần định nghĩa hàm này hoặc import từ biên bản nếu dùng chung
 
 
     print("Định dạng Đề cương môn học hoàn tất.")

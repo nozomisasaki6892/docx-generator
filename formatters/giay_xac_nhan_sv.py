@@ -1,116 +1,78 @@
 # formatters/giay_xac_nhan_sv.py
-import re
 import time
-from docx.shared import Pt, Cm, Inches
+from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from utils import set_paragraph_format, set_run_format, add_run_with_format
+from utils import set_paragraph_format, set_run_format, add_run_with_format, add_centered_text
 try:
-    # Dùng header, signature của trường/khoa
+    # Dùng header, signature của văn bản hành chính thông thường
     from .common_elements import format_basic_header, format_signature_block
 except ImportError:
-    from common_elements import format_basic_header, format_signature_block
+    def format_basic_header(document, data, doc_type): pass
+    def format_signature_block(document, data): pass
+
 from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT, FONT_SIZE_HEADER
 
 def format(document, data):
     print("Bắt đầu định dạng Giấy xác nhận sinh viên...")
-    # Thông tin sinh viên
-    student = data.get("student", {"name": "[HỌ TÊN SINH VIÊN]", "dob": "__/__/____", "id": "[Mã số SV]", "class": "[Lớp]", "major": "[Ngành học]", "faculty": "[Khoa]", "course_year": "[Khóa học]", "status": "đang theo học"})
-    purpose = data.get("purpose", "bổ túc hồ sơ vay vốn ngân hàng chính sách xã hội / xin tạm hoãn nghĩa vụ quân sự / ...") # Mục đích xác nhận
-    issuing_org = data.get("issuing_org", "TÊN TRƯỜNG").upper()
-    issuing_dept = data.get("issuing_dept", f"KHOA {student['faculty'].upper()}") # Khoa xác nhận
-
-    # 1. Header (Tên trường và Tên Khoa) - Dùng table 2 cột
-    header_table = document.add_table(rows=1, cols=2)
-    header_table.autofit = False
-    header_table.columns[0].width = Inches(3.0)
-    header_table.columns[1].width = Inches(3.0)
-
-    # Cột trái: Tên Trường
-    cell_org = header_table.cell(0, 0)
-    cell_org._element.clear_content()
-    p_org = cell_org.add_paragraph(issuing_org)
-    set_paragraph_format(p_org, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_org, issuing_org, size=FONT_SIZE_HEADER, bold=True)
-    p_dept = cell_org.add_paragraph(issuing_dept)
-    set_paragraph_format(p_dept, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_dept, issuing_dept, size=Pt(11), bold=True)
-    p_line_org = cell_org.add_paragraph("-------***-------")
-    set_paragraph_format(p_line_org, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
+    title = data.get("title", "GIẤY XÁC NHẬN").upper()
+    confirmation_subject = data.get("confirmation_subject", "(V/v: Xác nhận sinh viên)") # Nội dung xác nhận
+    body = data.get("body", "Trường [Tên trường] xác nhận:\nAnh/Chị:...\nNgày sinh:...\nLà sinh viên năm thứ... Lớp... Khoa... Hệ đào tạo...\nKhóa học:...\nMã số sinh viên:...\nHiện đang học tập tại trường.\nLý do xin xác nhận:...\nGiấy xác nhận này có giá trị trong vòng ... tháng kể từ ngày ký.")
+    student_name = data.get("student_name", "[Họ và tên sinh viên]")
 
 
-    # Cột phải: QH/TN
-    cell_qh_tn = header_table.cell(0, 1)
-    cell_qh_tn._element.clear_content()
-    p_qh = cell_qh_tn.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
-    set_paragraph_format(p_qh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_qh, p_qh.text, size=FONT_SIZE_HEADER, bold=True)
-    p_tn = cell_qh_tn.add_paragraph("Độc lập - Tự do - Hạnh phúc")
-    set_paragraph_format(p_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_tn, p_tn.text, size=Pt(13), bold=True)
-    p_line_tn = cell_qh_tn.add_paragraph("-" * 20)
-    set_paragraph_format(p_line_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    # 1. Header (Trường cấp xác nhận)
+    # Đảm bảo data có 'issuing_org' là tên trường
+    if 'issuing_org' not in data: data['issuing_org'] = "TRƯỜNG ĐẠI HỌC XYZ"
+    format_basic_header(document, data, "GiayXacNhanSV")
+
 
     # 2. Tên Giấy xác nhận
-    p_tenloai = document.add_paragraph("GIẤY XÁC NHẬN")
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(12))
-    add_run_with_format(p_tenloai, "GIẤY XÁC NHẬN", size=FONT_SIZE_TITLE, bold=True, uppercase=True)
-    add_run_with_format(p_tenloai, "\n(V/v: Xác nhận sinh viên)", size=FONT_SIZE_DEFAULT, bold=True) # Thêm V/v
+    add_centered_text(document, title, size=FONT_SIZE_TITLE, bold=True, space_before=12, space_after=6)
+    # Chủ đề xác nhận (nếu có)
+    add_centered_text(document, confirmation_subject, size=Pt(14), bold=True, space_after=18)
+
 
     # 3. Nội dung xác nhận
-    p_confirm_intro = document.add_paragraph()
-    set_paragraph_format(p_confirm_intro, space_after=Pt(6))
-    add_run_with_format(p_confirm_intro, f"{issuing_dept} xác nhận:")
+    body_lines = body.split('\n')
+    issuing_org_name = data.get("issuing_org", "[Tên trường]")
+    p_intro = document.add_paragraph(f"{issuing_org_name} xác nhận:")
+    set_paragraph_format(p_intro, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_after=Pt(6), first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5)
+    set_run_format(p_intro.runs[0], size=FONT_SIZE_DEFAULT)
 
-    p_name = document.add_paragraph()
-    set_paragraph_format(p_name, left_indent=Cm(1.0), space_after=Pt(0))
-    add_run_with_format(p_name, "Họ và tên sinh viên:")
-    add_run_with_format(p_name, f" {student['name']}", bold=True)
+    for line in body_lines:
+        stripped_line = line.strip()
+        if not stripped_line or "xác nhận:" in stripped_line.lower(): continue
 
-    p_dob = document.add_paragraph()
-    set_paragraph_format(p_dob, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(0))
-    add_run_with_format(p_dob, f"Ngày sinh: {student['dob']}")
+        p = document.add_paragraph()
+        is_info_line = ":" in stripped_line and len(stripped_line.split(":")[0]) < 30
 
-    p_id = document.add_paragraph()
-    set_paragraph_format(p_id, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(0))
-    add_run_with_format(p_id, f"Mã số sinh viên: {student['id']}")
+        align = WD_ALIGN_PARAGRAPH.LEFT
+        first_indent = Cm(0) # Thông tin xác nhận căn trái, không thụt lề
 
-    p_class = document.add_paragraph()
-    set_paragraph_format(p_class, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(0))
-    add_run_with_format(p_class, f"Lớp: {student['class']}")
+        set_paragraph_format(p, alignment=align, space_after=Pt(6), first_line_indent=first_indent, left_indent=Cm(1.0), line_spacing=1.5) # Thụt lề thông tin
 
-    p_major = document.add_paragraph()
-    set_paragraph_format(p_major, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(0))
-    add_run_with_format(p_major, f"Ngành học: {student['major']}")
+        if is_info_line:
+            parts = stripped_line.split(":", 1)
+            # In đậm thông tin sinh viên
+            if "anh/chị" in parts[0].lower() or "ngày sinh" in parts[0].lower() or "sinh viên năm" in parts[0].lower() or "lớp" in parts[0].lower() or "khoa" in parts[0].lower() or "mã số" in parts[0].lower():
+                add_run_with_format(p, parts[0] + ":", size=FONT_SIZE_DEFAULT, bold=True)
+                add_run_with_format(p, parts[1], size=FONT_SIZE_DEFAULT, bold=True)
+            else:
+                add_run_with_format(p, parts[0] + ":", size=FONT_SIZE_DEFAULT)
+                add_run_with_format(p, parts[1], size=FONT_SIZE_DEFAULT)
+        elif "có giá trị" in stripped_line.lower():
+             # Giá trị hiệu lực, nghiêng
+             set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(12), space_after=Pt(6), first_line_indent=Cm(0), left_indent=Cm(0), line_spacing=1.5)
+             add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT, italic=True)
+        else:
+             add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT)
 
-    p_faculty = document.add_paragraph()
-    set_paragraph_format(p_faculty, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(0))
-    add_run_with_format(p_faculty, f"Thuộc Khoa: {student['faculty']}")
 
-    p_course = document.add_paragraph()
-    set_paragraph_format(p_course, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(6))
-    add_run_with_format(p_course, f"Khóa học: {student['course_year']}")
-
-    p_status = document.add_paragraph()
-    set_paragraph_format(p_status, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6))
-    add_run_with_format(p_status, f"Hiện đang là sinh viên năm thứ ... hệ đào tạo ... hình thức đào tạo ... của Trường {issuing_org}.") # Cần điền thêm thông tin này
-    add_run_with_format(p_status, f" Tình trạng: {student['status']}.")
-
-    # 4. Mục đích xác nhận
-    p_purpose = document.add_paragraph()
-    set_paragraph_format(p_purpose, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6))
-    add_run_with_format(p_purpose, f"Giấy xác nhận này được cấp theo đề nghị của sinh viên {student['name']} để {purpose}.")
-
-    p_validity = document.add_paragraph()
-    set_paragraph_format(p_validity, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(12))
-    add_run_with_format(p_validity, "Giấy này có giá trị trong vòng ... tháng kể từ ngày ký.")
-
-    # 5. Chữ ký (Trưởng khoa hoặc người được ủy quyền)
-    p_date_place_footer = document.add_paragraph(f"{data.get('issuing_location', 'Hà Nội')}, ngày {time.strftime('%d')} tháng {time.strftime('%m')} năm {time.strftime('%Y')}")
-    set_paragraph_format(p_date_place_footer, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_after=Pt(0))
-    add_run_with_format(p_date_place_footer, p_date_place_footer.text, size=FONT_SIZE_DEFAULT, italic=True)
-
-    if not data.get('signer_title'): data['signer_title'] = f"TL. HIỆU TRƯỞNG\nTRƯỞNG KHOA {student['faculty'].upper()}" # Ví dụ
-    format_signature_block(document, data)
+    # 4. Chữ ký (Thường là Thủ trưởng đơn vị cấp xác nhận: Hiệu trưởng, Trưởng phòng CTSV...)
+    if 'signer_title' not in data: data['signer_title'] = "KT. HIỆU TRƯỞNG\nTRƯỞNG PHÒNG CÔNG TÁC SINH VIÊN" # Ví dụ
+    if 'signer_name' not in data: data['signer_name'] = "[Họ và tên]"
+    document.add_paragraph()
+    format_signature_block(document, data) # Dùng signature block chuẩn
 
 
     print("Định dạng Giấy xác nhận sinh viên hoàn tất.")

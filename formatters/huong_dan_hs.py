@@ -1,81 +1,98 @@
 # formatters/huong_dan_hs.py
 import re
+import time
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from utils import set_paragraph_format, set_run_format, add_run_with_format
 try:
+    # Dùng header, signature, recipient của văn bản HC thông thường
     from .common_elements import format_basic_header, format_signature_block, format_recipient_list
 except ImportError:
-    from common_elements import format_basic_header, format_signature_block, format_recipient_list
+    def format_basic_header(document, data, doc_type): pass
+    def format_signature_block(document, data): pass
+    def format_recipient_list(document, data): pass
+
 from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT
 
 def format(document, data):
-    print("Bắt đầu định dạng Hướng dẫn hồ sơ...")
-    title = data.get("title", "Hướng dẫn hồ sơ đăng ký dự thi / nhập học")
-    body = data.get("body", "Nội dung hướng dẫn...")
-    issuing_org = data.get("issuing_org", "TÊN TRƯỜNG/ĐƠN VỊ").upper()
+    # Định dạng này tương tự Thông báo hoặc Công văn
+    print("Bắt đầu định dạng Hướng dẫn Hồ sơ...")
+    title = data.get("title", "Hướng dẫn Chuẩn bị hồ sơ nhập học/Tuyển sinh...")
+    body = data.get("body", "Căn cứ Kế hoạch tuyển sinh..., Nhà trường hướng dẫn hồ sơ nhập học gồm các giấy tờ sau:\n1. Giấy báo trúng tuyển (bản chính).\n2. Học bạ THPT (bản chính và bản sao công chứng).\n3. Bằng tốt nghiệp THPT hoặc Giấy chứng nhận tốt nghiệp tạm thời (bản chính và bản sao công chứng).\n...")
+    doc_type_label = "HƯỚNG DẪN" # Hoặc THÔNG BÁO tùy cách gọi
 
-    # 1. Header của trường
-    data['issuing_org'] = issuing_org
-    format_basic_header(document, data, "HuongDanHS")
+    # 1. Header (Sử dụng header cơ bản)
+    format_basic_header(document, data, "HuongDanHS") # Có thể dùng type ThongBaoNT nếu phù hợp hơn
 
-    # 2. Tên loại
-    p_tenloai = document.add_paragraph("HƯỚNG DẪN")
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
-    add_run_with_format(p_tenloai, "HƯỚNG DẪN", size=FONT_SIZE_TITLE, bold=True, uppercase=True)
+    # 2. Tiêu đề
+    p_title = document.add_paragraph(doc_type_label)
+    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
+    set_run_format(p_title.runs[0], size=FONT_SIZE_TITLE, bold=True)
 
-    # 3. Tiêu đề hướng dẫn
-    hd_title = title.replace("Hướng dẫn", "").strip()
-    p_title = document.add_paragraph(hd_title)
-    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    add_run_with_format(p_title, hd_title, size=Pt(14), bold=True)
+    # Trích yếu nội dung hướng dẫn
+    subject = title.replace("Hướng dẫn", "").strip()
+    p_subject = document.add_paragraph(f"V/v: {subject}")
+    set_paragraph_format(p_subject, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    set_run_format(p_subject.runs[0], size=Pt(14), bold=True) # Trích yếu đậm
 
-    # 4. Nội dung (Các bước I, 1, a, -)
+
+    # 3. Căn cứ / Lời dẫn (nếu có)
     body_lines = body.split('\n')
-    for line in body_lines:
+    processed_indices = set()
+
+    for i, line in enumerate(body_lines):
         stripped_line = line.strip()
-        if stripped_line:
-            p = document.add_paragraph()
-            # Copy logic nhận diện mục từ huong_dan.py hoặc ke_hoach.py
-            left_indent_val = Cm(0)
-            first_indent_val = FIRST_LINE_INDENT
-            is_bold_run = False
-            align = WD_ALIGN_PARAGRAPH.JUSTIFY
+        if not stripped_line: continue
+        if stripped_line.lower().startswith("căn cứ"):
+            p = document.add_paragraph(stripped_line)
+            set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5, space_after=Pt(0))
+            set_run_format(p.runs[0], size=FONT_SIZE_DEFAULT, italic=True)
+            processed_indices.add(i)
+        elif any(l.strip().lower().startswith("căn cứ") for l in body_lines[:i]):
+             break
 
-            is_roman = re.match(r'^[IVXLCDM]+\.\s+', stripped_line)
-            is_arabic = re.match(r'^\d+\.\s+', stripped_line)
-            is_alpha = re.match(r'^[a-z]\)\s+', stripped_line)
-            is_dash = stripped_line.startswith('-')
-
-            if is_roman:
-                is_bold_run = True
-                align = WD_ALIGN_PARAGRAPH.LEFT
-                first_indent_val = Cm(0)
-                set_paragraph_format(p, alignment=align, left_indent=Cm(0), first_line_indent=Cm(0), space_before=Pt(12), space_after=Pt(6))
-            elif is_arabic:
-                left_indent_val = Cm(0.5)
-                first_indent_val = Cm(0)
-                is_bold_run = True # Mục 1, 2 đậm
-                set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=left_indent_val, first_line_indent=Cm(0), space_after=Pt(6))
-            elif is_alpha:
-                left_indent_val = Cm(1.0)
-                first_indent_val = Cm(0)
-                set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=left_indent_val, first_line_indent=Cm(0), space_after=Pt(6))
-            elif is_dash:
-                left_indent_val = Cm(1.5)
-                first_indent_val = Cm(0)
-                set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=left_indent_val, first_line_indent=Cm(0), space_after=Pt(6))
-            else:
-                set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=Cm(0), first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5, space_after=Pt(6))
-
-            add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT, bold=is_bold_run)
+    # Câu dẫn vào nội dung
+    intro_line_found = False
+    for i, line in enumerate(body_lines):
+         if i in processed_indices: continue
+         stripped_line = line.strip()
+         # Tìm câu dẫn chung chung
+         if "hướng dẫn" in stripped_line.lower() and "hồ sơ" in stripped_line.lower() and "sau:" in stripped_line.lower():
+             p_intro = document.add_paragraph(stripped_line)
+             set_paragraph_format(p_intro, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, space_before=Pt(6), space_after=Pt(12), first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5)
+             set_run_format(p_intro.runs[0], size=FONT_SIZE_DEFAULT)
+             processed_indices.add(i)
+             intro_line_found = True
+             break
 
 
-    # 5. Chữ ký (Người lập hướng dẫn hoặc lãnh đạo đơn vị)
-    if not data.get('signer_title'): data['signer_title'] = "TRƯỞNG PHÒNG ĐÀO TẠO" # Ví dụ
-    format_signature_block(document, data)
+    # 4. Nội dung Hướng dẫn (Thường là danh sách)
+    for i, line in enumerate(body_lines):
+        if i in processed_indices: continue
+        stripped_line = line.strip()
+        if not stripped_line: continue
+        p = document.add_paragraph()
 
-    # 6. Nơi nhận (nếu cần)
-    # format_recipient_list(document, data)
+        is_numbered_item = re.match(r'^(\d+)\.\s+', stripped_line) # 1., 2.
+        is_bullet = stripped_line.startswith("-") or stripped_line.startswith("+") or stripped_line.startswith("*") or stripped_line.startswith("•")
 
-    print("Định dạng Hướng dẫn hồ sơ hoàn tất.")
+        align = WD_ALIGN_PARAGRAPH.JUSTIFY
+        left_indent = Cm(0.5) # Thụt lề cho danh sách
+        first_indent = Cm(0)
+        is_bold = False
+        is_italic = False
+        size = FONT_SIZE_DEFAULT
+        space_before = Pt(0)
+        space_after = Pt(6)
+        line_spacing = 1.5
+
+        if is_numbered_item:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            first_indent = Cm(-0.5) # Hanging indent
+        elif is_bullet:
+             align = WD_ALIGN_PARAGRAPH.LEFT
+             left_indent = Cm(1.0) # Thụt lề sâu hơn cho bullet
+             first_indent = Cm(-0.5) # Hanging indent
+
+        set_paragraph_format(p, alignment=align, left_indent=left_indent, first_line_indent=first_indent, line_spacing=line_spacing, space_before=space_before, space_after=space_after)
+        add_run_with_format(p, stripped_line, size=size, bold=is_bold, italic=is_italic)

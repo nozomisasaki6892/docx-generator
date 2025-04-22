@@ -1,72 +1,79 @@
 # formatters/giay_gioi_thieu.py
-import re
 import time
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from utils import set_paragraph_format, set_run_format, add_run_with_format
 try:
-    from .common_elements import format_basic_header, format_signature_block
+    from .common_elements import format_basic_header, format_signature_block # Chỉ dùng header và signature
 except ImportError:
-    from common_elements import format_basic_header, format_signature_block
-from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT
+    def format_basic_header(document, data, doc_type): pass
+    def format_signature_block(document, data): pass
+
+from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT, FONT_SIZE_SMALL
 
 def format(document, data):
     print("Bắt đầu định dạng Giấy giới thiệu...")
-    # Thông tin cần thiết từ data
-    introduced_person = data.get("introduced_person", {"name": "[Họ tên]", "title": "[Chức vụ]"})
-    recipient_org = data.get("recipient_org", "[Tên cơ quan, đơn vị đến công tác]")
-    purpose = data.get("purpose", "[Nội dung công tác]")
-    valid_until = data.get("valid_until", "__/__/____") # ngày/tháng/năm
+    title = "GIẤY GIỚI THIỆU"
+    body = data.get("body", "Trân trọng giới thiệu Ông/Bà:...\nChức vụ:...\nĐược cử đến:...\nĐể liên hệ giải quyết công việc về:...\nĐề nghị Quý cơ quan tạo điều kiện giúp đỡ Ông/Bà ... hoàn thành nhiệm vụ.\nGiấy giới thiệu có giá trị đến hết ngày .../.../......")
+    recipient_org = data.get("recipient_org", "Kính gửi: [Tên cơ quan/đơn vị nơi đến]")
 
-    # 1. Header chuẩn của cơ quan giới thiệu
+
+    # 1. Header (Sử dụng header cơ bản)
     format_basic_header(document, data, "GiayGioiThieu")
 
-    # 2. Tên loại
-    p_tenloai = document.add_paragraph("GIẤY GIỚI THIỆU")
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(12))
-    add_run_with_format(p_tenloai, "GIẤY GIỚI THIỆU", size=FONT_SIZE_TITLE, bold=True, uppercase=True)
+
+    # 2. Tên loại văn bản
+    p_title = document.add_paragraph(title)
+    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(18))
+    set_run_format(p_title.runs[0], size=FONT_SIZE_TITLE, bold=True)
 
     # 3. Kính gửi
-    p_kg = document.add_paragraph(f"Kính gửi: {recipient_org}")
-    set_paragraph_format(p_kg, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12)) # Kính gửi căn giữa
-    add_run_with_format(p_kg, p_kg.text, size=FONT_SIZE_DEFAULT, bold=True)
+    p_kg = document.add_paragraph(recipient_org)
+    set_paragraph_format(p_kg, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    set_run_format(p_kg.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
 
     # 4. Nội dung giới thiệu
-    p_intro = document.add_paragraph()
-    set_paragraph_format(p_intro, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6))
-    add_run_with_format(p_intro, "Trân trọng giới thiệu:")
+    body_lines = body.split('\n')
+    intro_org = data.get("issuing_org", "[Tên cơ quan giới thiệu]") # Lấy tên CQ từ data header
+    p_intro = document.add_paragraph(f"{intro_org} trân trọng giới thiệu:")
+    set_paragraph_format(p_intro, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_after=Pt(6), first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5)
+    set_run_format(p_intro.runs[0], size=FONT_SIZE_DEFAULT)
 
-    p_name = document.add_paragraph()
-    set_paragraph_format(p_name, left_indent=Cm(1.0), space_after=Pt(0))
-    add_run_with_format(p_name, f"Ông/Bà: {introduced_person['name']}", bold=True)
+    for line in body_lines:
+        stripped_line = line.strip()
+        if not stripped_line or "trân trọng giới thiệu" in stripped_line.lower(): continue # Bỏ dòng đầu nếu có trong body
 
-    p_title = document.add_paragraph()
-    set_paragraph_format(p_title, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(0))
-    add_run_with_format(p_title, f"Chức vụ: {introduced_person['title']}")
+        p = document.add_paragraph()
+        is_info_line = ":" in stripped_line and len(stripped_line.split(":")[0]) < 30
 
-    p_to_org = document.add_paragraph()
-    set_paragraph_format(p_to_org, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(0))
-    add_run_with_format(p_to_org, f"Được cử đến công tác tại: {recipient_org}")
+        align = WD_ALIGN_PARAGRAPH.LEFT
+        first_indent = FIRST_LINE_INDENT
+        if is_info_line:
+            first_indent = Cm(0) # Không thụt lề dòng thông tin
 
-    p_purpose = document.add_paragraph()
-    set_paragraph_format(p_purpose, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(6))
-    add_run_with_format(p_purpose, f"Về việc: {purpose}")
+        set_paragraph_format(p, alignment=align, space_after=Pt(6), first_line_indent=first_indent, left_indent=Cm(1.0), line_spacing=1.5) # Thụt lề nội dung chính
 
-    # 5. Đề nghị giúp đỡ
-    p_request = document.add_paragraph()
-    set_paragraph_format(p_request, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6))
-    add_run_with_format(p_request, f"Đề nghị Quý Cơ quan tạo điều kiện để Ông/Bà {introduced_person['name']} hoàn thành nhiệm vụ.")
+        if is_info_line:
+            parts = stripped_line.split(":", 1)
+            add_run_with_format(p, parts[0] + ":", size=FONT_SIZE_DEFAULT)
+            add_run_with_format(p, parts[1], size=FONT_SIZE_DEFAULT)
+        elif "đề nghị quý cơ quan" in stripped_line.lower():
+             # Đoạn đề nghị không thụt lề trái
+             set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=Pt(6), first_line_indent=FIRST_LINE_INDENT, left_indent=Cm(0), line_spacing=1.5)
+             add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT)
+        elif "có giá trị đến" in stripped_line.lower():
+             # Đoạn giá trị hiệu lực không thụt lề, nghiêng
+              set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(12), space_after=Pt(6), first_line_indent=Cm(0), left_indent=Cm(0), line_spacing=1.5)
+              add_run_with_format(p, stripped_line, size=FONT_SIZE_SMALL, italic=True)
+        else:
+             add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT)
 
-    # 6. Hiệu lực
-    p_validity = document.add_paragraph()
-    set_paragraph_format(p_validity, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(12))
-    add_run_with_format(p_validity, f"Giấy giới thiệu có giá trị đến hết ngày {valid_until}.")
-
-    # 7. Chữ ký người đứng đầu cơ quan
-    # Cần lấy đúng chức vụ từ data (signer_title)
-    if not data.get('signer_title'): data['signer_title'] = "THỦ TRƯỞNG CƠ QUAN"
+    # 5. Chữ ký (Sử dụng khối chữ ký cơ bản)
+    if 'signer_title' not in data: data['signer_title'] = "THỦ TRƯỞNG CƠ QUAN" # Hoặc chức vụ ký GGT
+    if 'signer_name' not in data: data['signer_name'] = "[Họ và tên]"
+    document.add_paragraph()
     format_signature_block(document, data)
 
-    # Giấy giới thiệu không có nơi nhận ở cuối
+    # Giấy giới thiệu thường không có Nơi nhận ở cuối
 
     print("Định dạng Giấy giới thiệu hoàn tất.")

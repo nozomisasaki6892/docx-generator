@@ -3,53 +3,104 @@ import re
 import time
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-# Giả sử dùng header và signature của Luật
-from .luat import format_qppl_header, format_qppl_signature
+# Sử dụng header và signature của Luật (QPPL)
+try:
+    from .luat import format_qppl_header, format_qppl_signature
+except ImportError:
+    def format_qppl_header(document, issuer_name): pass
+    def format_qppl_signature(document, signer_title, signer_name): pass
+
 from utils import set_paragraph_format, set_run_format, add_run_with_format
 from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT
 
 def format(document, data):
-    print("Bắt đầu định dạng Nghị quyết QPPL của Quốc hội...")
-    title = data.get("title", "Nghị quyết của Quốc hội về ABC")
-    body = data.get("body", "Nội dung nghị quyết...")
+    print("Bắt đầu định dạng Nghị quyết Quốc hội...")
+    title = data.get("title", "Nghị quyết về Chương trình xây dựng luật, pháp lệnh năm...").upper()
+    body = data.get("body", "Căn cứ Hiến pháp...\nQUỐC HỘI\nQUYẾT NGHỊ:\nĐiều 1...\nĐiều 2...")
     resolution_number = data.get("resolution_number", "Nghị quyết số: .../.../QH...")
-    adoption_date_str = data.get("adoption_date", time.strftime("ngày %d tháng %m năm %Y"))
+    issuing_date_str = data.get("issuing_date", time.strftime("ngày %d tháng %m năm %Y")) # Ngày thông qua
+    issuing_location = data.get("issuing_location", "Hà Nội")
+    issuer_name = "QUỐC HỘI"
 
-    # 1. Header (QUỐC HỘI)
-    format_qppl_header(document, "QUỐC HỘI")
 
-    # 2. Số hiệu Nghị quyết
-    p_num = document.add_paragraph(resolution_number)
-    set_paragraph_format(p_num, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
-    add_run_with_format(p_num, p_num.text, size=FONT_SIZE_DEFAULT)
+    # 1. Header (QUỐC HỘI - Kiểu QPPL)
+    format_qppl_header(document, issuer_name)
 
-    # 3. Tên Nghị quyết
-    nq_title = title.replace("của Quốc hội", "").strip().upper() # Bỏ "của Quốc hội"
-    p_tenloai = document.add_paragraph(nq_title)
+    # 2. Số hiệu và Ngày tháng ban hành (Căn giữa)
+    p_num_date = document.add_paragraph(f"{resolution_number}       {issuing_location}, {issuing_date_str}")
+    set_paragraph_format(p_num_date, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    run_num = add_run_with_format(p_num_date, f"{resolution_number}       ", size=FONT_SIZE_DEFAULT)
+    run_date = add_run_with_format(p_num_date, f"{issuing_location}, {issuing_date_str}", size=FONT_SIZE_DEFAULT, italic=True)
+
+
+    # 3. Tên Nghị quyết (IN HOA, đậm, căn giữa)
+    p_tenloai = document.add_paragraph(title)
     set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(6), space_after=Pt(12))
     add_run_with_format(p_tenloai, p_tenloai.text, size=FONT_SIZE_TITLE, bold=True, uppercase=True)
 
-    # 4. Cơ quan ban hành (QUỐC HỘI)
-    p_issuer = document.add_paragraph("QUỐC HỘI")
-    set_paragraph_format(p_issuer, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
-    add_run_with_format(p_issuer, p_issuer.text, size=FONT_SIZE_DEFAULT, bold=True, uppercase=True)
+
+    # 4. Cơ quan ban hành (QUỐC HỘI - Lặp lại)
+    p_issuer_body = document.add_paragraph(issuer_name)
+    set_paragraph_format(p_issuer_body, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
+    add_run_with_format(p_issuer_body, p_issuer_body.text, size=FONT_SIZE_DEFAULT, bold=True, uppercase=True)
+
 
     # 5. Căn cứ ban hành
-    preamble = data.get("preamble", "Căn cứ Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam;\n[Căn cứ khác nếu có];\nXét đề nghị của ...;") # Mẫu preamble
-    preamble_lines = preamble.split('\n')
-    for line in preamble_lines:
-         p_pre = document.add_paragraph(line)
-         set_paragraph_format(p_pre, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(0), line_spacing=1.5)
-         add_run_with_format(p_pre, line, size=FONT_SIZE_DEFAULT, italic=True)
+    body_lines = body.split('\n')
+    processed_indices = set()
 
-    # 6. QUYẾT NGHỊ:
-    p_qn_label = document.add_paragraph("QUYẾT NGHỊ:")
-    set_paragraph_format(p_qn_label, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(6), space_after=Pt(6))
-    add_run_with_format(p_qn_label, "QUYẾT NGHỊ:", size=FONT_SIZE_DEFAULT, bold=True, uppercase=True)
+    for i, line in enumerate(body_lines):
+        stripped_line = line.strip()
+        if not stripped_line: continue
+        if stripped_line.lower().startswith("căn cứ"):
+            p = document.add_paragraph(stripped_line)
+            set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5, space_after=Pt(0))
+            set_run_format(p.runs[0], size=FONT_SIZE_DEFAULT, italic=True)
+            processed_indices.add(i)
+        # Dừng khi hết căn cứ hoặc gặp QUỐC HỘI QUYẾT NGHỊ
+        elif any(l.strip().lower().startswith("căn cứ") for l in body_lines[:i]):
+             if "QUỐC HỘI" in stripped_line.upper() or "QUYẾT NGHỊ:" in stripped_line.upper():
+                  break
+             else: # Xử lý các dòng khác trong preamble nếu có
+                  p = document.add_paragraph(stripped_line)
+                  set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5, space_after=Pt(0))
+                  set_run_format(p.runs[0], size=FONT_SIZE_DEFAULT, italic=True)
+                  processed_indices.add(i)
+
+
+    # 6. Phần QUYẾT NGHỊ:
+    added_quyet_nghi_label = False
+    for i, line in enumerate(body_lines):
+        if i in processed_indices: continue
+        stripped_line = line.strip()
+        if not stripped_line: continue
+        # Tìm dòng QUYẾT NGHỊ:
+        if "QUYẾT NGHỊ:" in stripped_line.upper():
+            # Nếu dòng đó chỉ có QUYẾT NGHỊ:
+            if stripped_line.upper() == "QUYẾT NGHỊ:":
+                p_qn_label = document.add_paragraph("QUYẾT NGHỊ:")
+                set_paragraph_format(p_qn_label, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(12))
+                add_run_with_format(p_qn_label, "QUYẾT NGHỊ:", size=FONT_SIZE_DEFAULT, bold=True, uppercase=True)
+                processed_indices.add(i)
+                added_quyet_nghi_label = True
+            else: # Nếu QUYẾT NGHỊ: nằm trong câu dẫn khác
+                 p_qn_intro = document.add_paragraph(stripped_line)
+                 set_paragraph_format(p_qn_intro, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(12))
+                 add_run_with_format(p_qn_intro, stripped_line, size=FONT_SIZE_DEFAULT, bold=True)
+                 processed_indices.add(i)
+                 added_quyet_nghi_label = True # Đã xử lý
+            break # Chỉ xử lý 1 lần
+
+    # Nếu không tìm thấy label QUYẾT NGHỊ: trong body, tự thêm vào
+    if not added_quyet_nghi_label:
+         p_qn_label = document.add_paragraph("QUYẾT NGHỊ:")
+         set_paragraph_format(p_qn_label, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(12))
+         add_run_with_format(p_qn_label, "QUYẾT NGHỊ:", size=FONT_SIZE_DEFAULT, bold=True, uppercase=True)
+
 
     # 7. Nội dung (Điều, Khoản, Điểm)
-    body_lines = body.split('\n')
-    for line in body_lines:
+    for i, line in enumerate(body_lines):
+        if i in processed_indices: continue
         stripped_line = line.strip()
         if not stripped_line: continue
         p = document.add_paragraph()
@@ -60,29 +111,38 @@ def format(document, data):
 
         align = WD_ALIGN_PARAGRAPH.JUSTIFY
         left_indent = Cm(0)
-        first_indent = FIRST_LINE_INDENT
+        first_indent = FIRST_LINE_INDENT if not (is_dieu or is_khoan or is_diem) else Cm(0)
         is_bold = False
+        size = FONT_SIZE_DEFAULT
+        space_before = Pt(0)
+        space_after = Pt(6)
+        line_spacing = 1.5
 
         if is_dieu:
             align = WD_ALIGN_PARAGRAPH.LEFT
-            first_indent = Cm(0)
             is_bold = True
+            space_before = Pt(6)
+            size = Pt(13)
         elif is_khoan:
             left_indent = Cm(0.5)
-            first_indent = Cm(0)
         elif is_diem:
             left_indent = Cm(1.0)
-            first_indent = Cm(0)
 
-        set_paragraph_format(p, alignment=align, left_indent=left_indent, first_line_indent=first_indent, line_spacing=1.5, space_after=Pt(6))
-        add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT, bold=is_bold)
+        set_paragraph_format(p, alignment=align, left_indent=left_indent, first_line_indent=first_indent, line_spacing=line_spacing, space_before=space_before, space_after=space_after)
+        add_run_with_format(p, stripped_line, size=size, bold=is_bold)
 
-    # 8. Thông tin thông qua
-    p_adoption = document.add_paragraph(f"Nghị quyết này đã được Quốc hội nước Cộng hòa xã hội chủ nghĩa Việt Nam khóa ... kỳ họp thứ ... thông qua ngày {adoption_date_str}.")
+    # 8. Thông tin thông qua Nghị quyết
+    adoption_info = data.get("adoption_info", f"Nghị quyết này đã được Quốc hội nước Cộng hòa xã hội chủ nghĩa Việt Nam khóa ... kỳ họp thứ ... thông qua ngày {issuing_date_str}.")
+    p_adoption = document.add_paragraph(adoption_info)
     set_paragraph_format(p_adoption, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(12))
-    add_run_with_format(p_adoption, p_adoption.text, size=FONT_SIZE_DEFAULT, italic=True)
+    set_run_format(p_adoption.runs[0], size=FONT_SIZE_DEFAULT, italic=True)
+
 
     # 9. Chữ ký Chủ tịch Quốc hội
-    format_qppl_signature(document, "CHỦ TỊCH QUỐC HỘI", data.get("signer_name", "[Tên Chủ tịch QH]"))
+    signer_title = data.get("signer_title", "CHỦ TỊCH QUỐC HỘI")
+    signer_name = data.get("signer_name", "[Tên Chủ tịch QH]")
+    format_qppl_signature(document, signer_title, signer_name)
 
-    print("Định dạng Nghị quyết QH hoàn tất.")
+    # Nghị quyết QH thường không có nơi nhận ở cuối
+
+    print("Định dạng Nghị quyết Quốc hội hoàn tất.")

@@ -1,73 +1,109 @@
 # formatters/phuong_an.py
 import re
+import time
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from utils import set_paragraph_format, set_run_format, add_run_with_format
 try:
+    # Phương án thường dùng header, signature, recipient như KH, Đề án
     from .common_elements import format_basic_header, format_signature_block, format_recipient_list
 except ImportError:
-    from common_elements import format_basic_header, format_signature_block, format_recipient_list
+    # Fallback nếu chạy độc lập
+    def format_basic_header(document, data, doc_type): pass
+    def format_signature_block(document, data): pass
+    def format_recipient_list(document, data): pass
+
 from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT
 
 def format(document, data):
     print("Bắt đầu định dạng Phương án...")
-    title = data.get("title", "Phương án giải quyết vấn đề ABC")
-    body = data.get("body", "Nội dung phương án...")
+    title = data.get("title", "Phương án Tổ chức/Triển khai/...")
+    body = data.get("body", "I. CĂN CỨ XÂY DỰNG PHƯƠNG ÁN\nII. MỤC TIÊU, YÊU CẦU\nIII. NỘI DUNG PHƯƠNG ÁN\n   1. Giải pháp 1...\n   2. Giải pháp 2...\nIV. TỔ CHỨC THỰC HIỆN...")
+    doc_type_label = "PHƯƠNG ÁN"
 
-    # Phương án thường trình cấp trên nên có Header
+    # 1. Header (Sử dụng header cơ bản)
     format_basic_header(document, data, "PhuongAn")
 
-    p_tenloai = document.add_paragraph("PHƯƠNG ÁN")
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
-    add_run_with_format(p_tenloai, "PHƯƠNG ÁN", size=FONT_SIZE_TITLE, bold=True, uppercase=True)
+    # 2. Tiêu đề
+    p_title = document.add_paragraph(doc_type_label)
+    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
+    set_run_format(p_title.runs[0], size=FONT_SIZE_TITLE, bold=True)
 
-    # Tiêu đề của Phương án
-    pa_title = title.replace("Phương án", "").strip()
-    p_title = document.add_paragraph(pa_title)
-    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    add_run_with_format(p_title, pa_title, size=Pt(14), bold=True)
+    # Trích yếu nội dung phương án
+    subject = title.replace("Phương án", "").strip()
+    p_subject = document.add_paragraph(subject)
+    set_paragraph_format(p_subject, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    set_run_format(p_subject.runs[0], size=Pt(14), bold=True)
 
-    # Nội dung cấu trúc tương tự Kế hoạch/Đề án
+
+    # 3. Căn cứ xây dựng phương án (nếu có)
     body_lines = body.split('\n')
-    for line in body_lines:
+    processed_indices = set()
+
+    for i, line in enumerate(body_lines):
         stripped_line = line.strip()
-        if stripped_line:
-            p = document.add_paragraph()
-            left_indent_val = Cm(0)
-            first_indent_val = FIRST_LINE_INDENT
-            is_bold_run = False
-            align = WD_ALIGN_PARAGRAPH.JUSTIFY
+        if not stripped_line: continue
+        if stripped_line.lower().startswith("căn cứ"):
+            p = document.add_paragraph(stripped_line)
+            set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5, space_after=Pt(0))
+            set_run_format(p.runs[0], size=FONT_SIZE_DEFAULT, italic=True)
+            processed_indices.add(i)
+        elif any(l.strip().lower().startswith("căn cứ") for l in body_lines[:i]):
+             break
+    if processed_indices: document.add_paragraph()
 
-            is_roman = re.match(r'^[IVXLCDM]+\.\s+', stripped_line)
-            is_arabic = re.match(r'^\d+\.\s+', stripped_line)
-            is_alpha = re.match(r'^[a-z]\)\s+', stripped_line)
-            is_dash = stripped_line.startswith('-')
-            is_main_heading = any(stripped_line.upper().startswith(h) for h in ["I.", "II.", "III.", "MỤC TIÊU", "NỘI DUNG", "GIẢI PHÁP", "TỔ CHỨC THỰC HIỆN"])
+    # 4. Nội dung Phương án
+    for i, line in enumerate(body_lines):
+        if i in processed_indices: continue
+        stripped_line = line.strip()
+        if not stripped_line: continue
+        p = document.add_paragraph()
 
-            if is_main_heading or is_roman:
-                is_bold_run = True
-                align = WD_ALIGN_PARAGRAPH.LEFT
-                first_indent_val = Cm(0)
-                set_paragraph_format(p, alignment=align, left_indent=Cm(0), first_line_indent=Cm(0), space_before=Pt(12), space_after=Pt(6))
-            elif is_arabic:
-                left_indent_val = Cm(0.5)
-                first_indent_val = Cm(0)
-                is_bold_run = True # Mục cấp 2 đậm
-                set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=left_indent_val, first_line_indent=Cm(0), space_after=Pt(6))
-            elif is_alpha:
-                left_indent_val = Cm(1.0)
-                first_indent_val = Cm(0)
-                set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=left_indent_val, first_line_indent=Cm(0), space_after=Pt(6))
-            elif is_dash:
-                left_indent_val = Cm(1.5)
-                first_indent_val = Cm(0)
-                set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=left_indent_val, first_line_indent=Cm(0), space_after=Pt(6))
-            else:
-                set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=Cm(0), first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5, space_after=Pt(6))
+        # Logic định dạng cơ bản cho các đề mục phương án (tương tự Kế hoạch, Đề án)
+        is_part_roman = re.match(r'^([IVXLCDM]+)\.\s+', stripped_line.upper()) # I, II, III
+        is_section_digit = re.match(r'^(\d+\.)\s+', stripped_line) # 1, 2, 3
+        is_subsection_alpha = re.match(r'^[a-z]\)\s+', stripped_line) # a, b, c
+        is_bullet = stripped_line.startswith("-") or stripped_line.startswith("+") or stripped_line.startswith("*") or stripped_line.startswith("•")
 
-            add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT, bold=is_bold_run)
+        align = WD_ALIGN_PARAGRAPH.JUSTIFY
+        left_indent = Cm(0)
+        first_indent = FIRST_LINE_INDENT if not (is_part_roman or is_section_digit or is_subsection_alpha or is_bullet) else Cm(0)
+        is_bold = bool(is_part_roman or is_section_digit) # Mục lớn đậm
+        is_italic = False
+        size = FONT_SIZE_DEFAULT
+        space_before = Pt(0)
+        space_after = Pt(6)
+        line_spacing = 1.5
 
+        if is_part_roman:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            space_before = Pt(12)
+            size = Pt(13)
+        elif is_section_digit:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            left_indent = Cm(0.5)
+            space_before = Pt(6)
+        elif is_subsection_alpha:
+             align = WD_ALIGN_PARAGRAPH.LEFT
+             left_indent = Cm(1.0)
+        elif is_bullet:
+             align = WD_ALIGN_PARAGRAPH.LEFT
+             left_indent = Cm(1.5)
+             first_indent = Cm(-0.5) # Hanging indent
+
+
+        set_paragraph_format(p, alignment=align, left_indent=left_indent, first_line_indent=first_indent, line_spacing=line_spacing, space_before=space_before, space_after=space_after)
+        add_run_with_format(p, stripped_line, size=size, bold=is_bold, italic=is_italic)
+
+
+    # 5. Chữ ký (Sử dụng khối chữ ký cơ bản)
+    if 'signer_title' not in data: data['signer_title'] = "THỦ TRƯỞNG CƠ QUAN"
+    if 'signer_name' not in data: data['signer_name'] = "[Họ và tên]"
+    document.add_paragraph()
     format_signature_block(document, data)
+
+    # 6. Nơi nhận (Sử dụng nơi nhận cơ bản)
+    if 'recipients' not in data: data['recipients'] = ["- Như trên;", "- Lưu: VT, ...;"]
     format_recipient_list(document, data)
 
     print("Định dạng Phương án hoàn tất.")

@@ -1,147 +1,116 @@
 # formatters/giay_nghi_phep.py
-import re
 import time
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from utils import set_paragraph_format, set_run_format, add_run_with_format
-try:
-    from .common_elements import format_basic_header # Có thể dùng hoặc không
-except ImportError:
-    from common_elements import format_basic_header
+from utils import set_paragraph_format, set_run_format, add_run_with_format, add_centered_text
 from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT, FONT_SIZE_HEADER
 
 def format(document, data):
-    print("Bắt đầu định dạng Giấy nghỉ phép...")
-    # Thông tin cần thiết
-    applicant = data.get("applicant", {"name": "[Họ tên]", "department": "[Bộ phận]", "position": "[Chức vụ]"})
-    leave_days = data.get("leave_days", "...")
-    start_date = data.get("start_date", "__/__/____")
-    end_date = data.get("end_date", "__/__/____")
-    reason = data.get("reason", "[Lý do xin nghỉ]")
-    substitute = data.get("substitute", "[Người bàn giao công việc]")
-    contact_address = data.get("contact_address", "[Địa chỉ liên hệ khi nghỉ]")
-    contact_phone = data.get("contact_phone", "[Số điện thoại]")
-    recipient_list = data.get("leave_recipients", ["Ban Giám đốc Công ty", "Phòng Hành chính - Nhân sự", "[Trưởng bộ phận]"])
-
-    # 1. Header (Có thể chỉ là tên công ty hoặc có QH/TN)
-    add_qh_tn = data.get("add_qh_tn_gnp", True)
-    if add_qh_tn:
-        p_qh = document.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
-        set_paragraph_format(p_qh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-        add_run_with_format(p_qh, p_qh.text, size=FONT_SIZE_HEADER, bold=True)
-        p_tn = document.add_paragraph("Độc lập - Tự do - Hạnh phúc")
-        set_paragraph_format(p_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-        add_run_with_format(p_tn, p_tn.text, size=Pt(13), bold=True)
-        p_line_tn = document.add_paragraph("-" * 20)
-        set_paragraph_format(p_line_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    else: # Chỉ thêm tên công ty nếu không có QH/TN
-        p_org = document.add_paragraph(data.get("issuing_org", "TÊN CÔNG TY").upper())
-        set_paragraph_format(p_org, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-        add_run_with_format(p_org, p_org.text, size=FONT_SIZE_HEADER, bold=True)
+    print("Bắt đầu định dạng Giấy/Đơn xin nghỉ phép...")
+    title = data.get("title", "ĐƠN XIN NGHỈ PHÉP").upper()
+    body = data.get("body", "Kính gửi:...\nTên tôi là:...\nChức vụ/Bộ phận:...\nNay tôi làm đơn này xin phép được nghỉ... ngày, từ ngày... đến ngày...\nLý do:...\nTrong thời gian nghỉ, công việc của tôi sẽ do Ông/Bà... phụ trách.\nKính mong Ban Lãnh đạo/Phòng ban xem xét, chấp thuận.\nTôi xin chân thành cảm ơn.")
+    applicant_name = data.get("applicant_name", "[Họ và tên người làm đơn]")
+    issuing_location = data.get("issuing_location", "Hà Nội") # Nơi viết đơn
+    submission_date_str = data.get("submission_date", time.strftime(f"ngày %d tháng %m năm %Y")) # Ngày viết đơn
 
 
-    # 2. Ngày tháng làm đơn
-    p_date_place = document.add_paragraph(f"{data.get('issuing_location', 'Hà Nội')}, ngày {time.strftime('%d')} tháng {time.strftime('%m')} năm {time.strftime('%Y')}")
-    set_paragraph_format(p_date_place, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_after=Pt(12))
-    add_run_with_format(p_date_place, p_date_place.text, size=FONT_SIZE_DEFAULT, italic=True)
+    # 1. Quốc hiệu, Tiêu ngữ (Căn giữa)
+    add_centered_text(document, "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", size=FONT_SIZE_HEADER, bold=True, space_after=0)
+    add_centered_text(document, "Độc lập - Tự do - Hạnh phúc", size=Pt(13), bold=True, space_after=18)
+
+    # 2. Tên Đơn
+    add_centered_text(document, title, size=FONT_SIZE_TITLE, bold=True, space_before=12, space_after=12)
+
+    # 3. Kính gửi
+    recipient = data.get("recipient", "Ban Giám đốc Công ty ABC\nvà Trưởng phòng [Tên phòng ban]") # VD
+    p_kg = document.add_paragraph(f"Kính gửi: {recipient}")
+    set_paragraph_format(p_kg, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_after=Pt(12))
+    set_run_format(p_kg.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
+
+    # 4. Nội dung Đơn
+    body_lines = body.split('\n')
+    for line in body_lines:
+        stripped_line = line.strip()
+        if not stripped_line: continue
+
+        p = document.add_paragraph()
+        # Nội dung đơn thường căn trái hoặc đều, thụt lề dòng đầu
+        is_info_line = ":" in stripped_line and len(stripped_line.split(":")[0]) < 30 # Heuristic
+
+        align = WD_ALIGN_PARAGRAPH.JUSTIFY
+        first_indent = FIRST_LINE_INDENT
+        is_bold = False
+        if is_info_line:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            first_indent = Cm(0)
+
+        set_paragraph_format(p, alignment=align, space_after=Pt(6), first_line_indent=first_indent, line_spacing=1.5)
+
+        if is_info_line:
+            parts = stripped_line.split(":", 1)
+            add_run_with_format(p, parts[0] + ":", size=FONT_SIZE_DEFAULT)
+            add_run_with_format(p, parts[1], size=FONT_SIZE_DEFAULT)
+        elif "kính mong" in stripped_line.lower():
+            add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT, bold=True) # Có thể đậm câu kính mong
+        else:
+             add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT)
 
 
-    # 3. Tên đơn
-    p_tenloai = document.add_paragraph("ĐƠN XIN NGHỈ PHÉP")
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(6), space_after=Pt(12))
-    add_run_with_format(p_tenloai, "ĐƠN XIN NGHỈ PHÉP", size=FONT_SIZE_TITLE, bold=True, uppercase=True)
+    # 5. Lời cảm ơn
+    p_thanks = document.add_paragraph("Tôi xin chân thành cảm ơn!")
+    set_paragraph_format(p_thanks, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(12), space_after=Pt(12), first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5)
+    set_run_format(p_thanks.runs[0], size=FONT_SIZE_DEFAULT)
 
-    # 4. Kính gửi
-    p_kg = document.add_paragraph()
-    set_paragraph_format(p_kg, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_after=Pt(6))
-    add_run_with_format(p_kg, "Kính gửi:", bold=True)
-    for recipient in recipient_list:
-         p_rec = document.add_paragraph()
-         set_paragraph_format(p_rec, alignment=WD_ALIGN_PARAGRAPH.LEFT, left_indent=Cm(1.0), space_before=Pt(0), space_after=Pt(0))
-         add_run_with_format(p_rec, f"- {recipient}", bold=True) # Kính gửi đậm
+    # 6. Bảng chữ ký (Người làm đơn, Người duyệt - nếu cần)
+    table = document.add_table(rows=1, cols=2) # Có thể 3 cột nếu có ý kiến bộ phận
+    table.autofit = False
+    table.allow_autofit = False
+    table.columns[0].width = Cm(8.0) # Cột ý kiến duyệt (nếu có)
+    table.columns[1].width = Cm(8.5) # Cột người làm đơn
 
-    # 5. Thông tin người làm đơn
-    p_applicant_info = document.add_paragraph()
-    set_paragraph_format(p_applicant_info, space_before=Pt(12), space_after=Pt(0))
-    add_run_with_format(p_applicant_info, f"Tên tôi là: {applicant['name']}", bold=True)
-
-    p_applicant_dept = document.add_paragraph()
-    set_paragraph_format(p_applicant_dept, space_before=Pt(0), space_after=Pt(0))
-    add_run_with_format(p_applicant_dept, f"Bộ phận công tác: {applicant['department']}")
-
-    p_applicant_pos = document.add_paragraph()
-    set_paragraph_format(p_applicant_pos, space_before=Pt(0), space_after=Pt(6))
-    add_run_with_format(p_applicant_pos, f"Chức vụ: {applicant['position']}")
-
-    # 6. Nội dung xin phép
-    p_request = document.add_paragraph()
-    set_paragraph_format(p_request, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6))
-    add_run_with_format(p_request, f"Nay tôi làm đơn này kính xin Ban lãnh đạo cho tôi được nghỉ phép {leave_days} ngày.")
-
-    p_dates = document.add_paragraph()
-    set_paragraph_format(p_dates, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6))
-    add_run_with_format(p_dates, f"Thời gian nghỉ: Từ ngày {start_date} đến hết ngày {end_date}.")
-
-    p_reason = document.add_paragraph()
-    set_paragraph_format(p_reason, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6))
-    add_run_with_format(p_reason, f"Lý do: {reason}")
-
-    p_substitute = document.add_paragraph()
-    set_paragraph_format(p_substitute, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6))
-    add_run_with_format(p_substitute, f"Trong thời gian nghỉ phép, công việc của tôi tại bộ phận đã được bàn giao lại cho Ông/Bà: {substitute}.")
-
-    p_contact = document.add_paragraph()
-    set_paragraph_format(p_contact, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(0))
-    add_run_with_format(p_contact, f"Địa chỉ liên hệ trong thời gian nghỉ phép: {contact_address}")
-
-    p_phone = document.add_paragraph()
-    set_paragraph_format(p_phone, first_line_indent=FIRST_LINE_INDENT, space_before=Pt(0), space_after=Pt(12))
-    add_run_with_format(p_phone, f"Số điện thoại: {contact_phone}")
-
-    p_closing = document.add_paragraph()
-    set_paragraph_format(p_closing, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(6))
-    add_run_with_format(p_closing, "Kính mong Ban lãnh đạo xem xét và chấp thuận.")
-
-    p_thanks = document.add_paragraph()
-    set_paragraph_format(p_thanks, first_line_indent=FIRST_LINE_INDENT, space_after=Pt(12))
-    add_run_with_format(p_thanks, "Xin chân thành cảm ơn!")
-
-
-    # 7. Chữ ký (Người làm đơn và các cấp duyệt) - Dùng table
-    sig_table = document.add_table(rows=1, cols=3) # Ví dụ 3 cột: Người duyệt, HCNS, Người làm đơn
-    sig_table.autofit = False
-    col_width = Inches(2.0)
-    sig_table.columns[0].width = col_width
-    sig_table.columns[1].width = col_width
-    sig_table.columns[2].width = col_width
-
-    # Cột Người duyệt (ví dụ: Trưởng bộ phận)
-    cell_approver1 = sig_table.cell(0, 0)
-    cell_approver1._element.clear_content()
-    p_app1_title = cell_approver1.add_paragraph(data.get("approver1_title", "Ý KIẾN TRƯỞNG BỘ PHẬN"))
-    set_paragraph_format(p_app1_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(60))
-    add_run_with_format(p_app1_title, p_app1_title.text, bold=True)
-
-    # Cột HCNS (ví dụ)
-    cell_hr = sig_table.cell(0, 1)
-    cell_hr._element.clear_content()
-    p_hr_title = cell_hr.add_paragraph(data.get("approver2_title", "Ý KIẾN PHÒNG HCNS"))
-    set_paragraph_format(p_hr_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(60))
-    add_run_with_format(p_hr_title, p_hr_title.text, bold=True)
-
-    # Cột Người làm đơn
-    cell_applicant = sig_table.cell(0, 2)
+    # --- Cột Phải: Người làm đơn ---
+    cell_applicant = table.cell(0, 1)
     cell_applicant._element.clear_content()
-    p_app_title = cell_applicant.add_paragraph("NGƯỜI LÀM ĐƠN")
-    set_paragraph_format(p_app_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_app_title, "NGƯỜI LÀM ĐƠN", bold=True)
-    p_app_note = cell_applicant.add_paragraph("(Ký, ghi rõ họ tên)")
-    set_paragraph_format(p_app_note, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(60))
-    add_run_with_format(p_app_note, "(Ký, ghi rõ họ tên)", size=Pt(11), italic=True)
-    p_app_name = cell_applicant.add_paragraph(applicant['name'])
+
+    p_app_date = cell_applicant.add_paragraph(f"{issuing_location}, {submission_date_str}")
+    set_paragraph_format(p_app_date, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
+    set_run_format(p_app_date.runs[0], size=FONT_SIZE_DEFAULT, italic=True)
+
+    p_app_label = cell_applicant.add_paragraph("NGƯỜI LÀM ĐƠN")
+    set_paragraph_format(p_app_label, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+    set_run_format(p_app_label.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
+
+    p_app_note = cell_applicant.add_paragraph("(Ký và ghi rõ họ tên)")
+    set_paragraph_format(p_app_note, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    set_run_format(p_app_note.runs[0], size=Pt(11), italic=True)
+
+    cell_applicant.add_paragraph("\n\n\n") # Khoảng trống ký
+
+    p_app_name = cell_applicant.add_paragraph(applicant_name)
     set_paragraph_format(p_app_name, alignment=WD_ALIGN_PARAGRAPH.CENTER)
-    add_run_with_format(p_app_name, applicant['name'], size=FONT_SIZE_SIGNER_NAME, bold=True)
+    set_run_format(p_app_name.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
 
-    # Có thể thêm phần duyệt cuối cùng của Ban Giám đốc nếu cần
+    # --- Cột Trái: Ý kiến phê duyệt (Tùy chọn) ---
+    approver_title = data.get("approver_title", "Ý KIẾN CỦA TRƯỞNG BỘ PHẬN").upper()
+    approver_name = data.get("approver_name", "")
+    if data.get("needs_approval", False): # Thêm cờ để biết có cần cột duyệt không
+        cell_approver = table.cell(0, 0)
+        cell_approver._element.clear_content()
 
-    print("Định dạng Giấy nghỉ phép hoàn tất.")
+        p_appr_label = cell_approver.add_paragraph(approver_title)
+        set_paragraph_format(p_appr_label, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+        set_run_format(p_appr_label.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
+
+        p_appr_note = cell_approver.add_paragraph("(Duyệt và ký)")
+        set_paragraph_format(p_appr_note, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+        set_run_format(p_appr_note.runs[0], size=Pt(11), italic=True)
+
+        cell_approver.add_paragraph("\n\n\n") # Khoảng trống ký
+
+        if approver_name:
+             p_appr_name = cell_approver.add_paragraph(approver_name)
+             set_paragraph_format(p_appr_name, alignment=WD_ALIGN_PARAGRAPH.CENTER)
+             set_run_format(p_appr_name.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
+
+
+    print("Định dạng Giấy/Đơn xin nghỉ phép hoàn tất.")

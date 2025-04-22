@@ -1,108 +1,143 @@
 # formatters/bien_ban.py
-import re
 import time
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-
 from utils import set_paragraph_format, set_run_format, add_run_with_format
 try:
-    from .common_elements import format_basic_header, format_signature_block # Biên bản thường ko có Nơi nhận
+    # Biên bản thường không có chữ ký theo kiểu NĐ30, chữ ký nằm cuối nội dung
+    from .common_elements import format_basic_header # Chỉ dùng header
 except ImportError:
-    from common_elements import format_basic_header, format_signature_block
-from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT, FONT_SIZE_HEADER
+    def format_basic_header(document, data, doc_type): pass
+
+from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT
+
+def format_signatures_in_table(document, participants_signatures):
+    if not participants_signatures: return
+
+    num_participants = len(participants_signatures)
+    # Tạo bảng chữ ký, có thể 2 hoặc 3 cột tùy số lượng
+    num_cols = 2 if num_participants <= 4 else 3
+    num_rows = (num_participants + num_cols - 1) // num_cols
+
+    table = document.add_table(rows=num_rows, cols=num_cols)
+    table.style = 'Table Grid' # Có thể bỏ viền nếu muốn
+    table.autofit = False
+    table.allow_autofit = False
+    col_width = Cm(16.5 / num_cols) # Chia đều chiều rộng
+    for col in table.columns:
+        col.width = col_width
+
+    idx = 0
+    for r in range(num_rows):
+        for c in range(num_cols):
+            if idx < num_participants:
+                participant = participants_signatures[idx]
+                cell = table.cell(r, c)
+                cell._element.clear_content()
+                # Chức vụ/Vai trò
+                p_title = cell.add_paragraph(participant.get('title', 'Thành phần tham dự').upper())
+                set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
+                set_run_format(p_title.runs[0], size=Pt(11), bold=True)
+                # Khoảng trống
+                cell.add_paragraph("\n\n\n")
+                # Tên
+                p_name = cell.add_paragraph(participant.get('name', '[Họ và tên]'))
+                set_paragraph_format(p_name, alignment=WD_ALIGN_PARAGRAPH.CENTER)
+                set_run_format(p_name.runs[0], size=Pt(11), bold=True)
+                idx += 1
+            else:
+                 # Xóa nội dung ô thừa nếu số người không chia hết
+                 table.cell(r, c)._element.clear_content()
+
 
 def format(document, data):
     print("Bắt đầu định dạng Biên bản...")
-    title = data.get("title", "Biên bản họp ABC")
-    body = data.get("body", "Nội dung biên bản...")
-    # Biên bản có thể có hoặc không có header chuẩn, tùy thuộc vào ngữ cảnh
-    # Nếu là biên bản của cuộc họp nội bộ thì không cần header NĐ30
-    # Nếu là biên bản làm việc giữa các cơ quan thì có thể có
-    add_header = data.get("add_formal_header", False) # Thêm cờ để quyết định có header ko
+    title = data.get("title", "Biên bản họp/làm việc/nghiệm thu...")
+    body = data.get("body", "I. Thời gian, địa điểm...\nII. Thành phần tham dự...\nIII. Nội dung...\nIV. Kết luận...")
+    doc_type_label = "BIÊN BẢN"
 
-    if add_header:
-        format_basic_header(document, data, "BienBan") # Có thể dùng header chung
+    # 1. Header (Sử dụng header cơ bản)
+    # Biên bản có thể có hoặc không có header CQBH tùy ngữ cảnh
+    format_basic_header(document, data, "BienBan")
 
-    # Quốc hiệu/Tiêu ngữ (Thường có ở các biên bản quan trọng)
-    p_qh = document.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
-    set_paragraph_format(p_qh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_qh, "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", size=FONT_SIZE_HEADER, bold=True)
-    p_tn = document.add_paragraph("Độc lập - Tự do - Hạnh phúc")
-    set_paragraph_format(p_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_tn, "Độc lập - Tự do - Hạnh phúc", size=Pt(13), bold=True)
-    p_line_tn = document.add_paragraph("-" * 20)
-    set_paragraph_format(p_line_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    # 2. Tiêu đề
+    p_title = document.add_paragraph(doc_type_label)
+    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
+    set_run_format(p_title.runs[0], size=FONT_SIZE_TITLE, bold=True)
+
+    # Trích yếu nội dung biên bản
+    subject = title.replace("Biên bản", "").strip()
+    p_subject = document.add_paragraph(f"V/v: {subject}")
+    set_paragraph_format(p_subject, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    set_run_format(p_subject.runs[0], size=Pt(14), bold=True)
 
 
-    # Tên loại
-    p_tenloai = document.add_paragraph("BIÊN BẢN")
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
-    add_run_with_format(p_tenloai, "BIÊN BẢN", size=FONT_SIZE_TITLE, bold=True, uppercase=True)
-
-    # Tiêu đề của Biên bản
-    bb_title = title.replace("Biên bản", "").strip()
-    p_title = document.add_paragraph(bb_title)
-    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    add_run_with_format(p_title, bb_title, size=Pt(14), bold=True)
-
-    # Nội dung (Thời gian, Địa điểm, Thành phần, Chủ trì, Thư ký, Nội dung họp, Kết luận...)
-    # Phần này rất đa dạng, cần AI tách hoặc có cấu trúc đầu vào rõ ràng
-    # Tạm thời định dạng các dòng theo kiểu thông thường
+    # 3. Nội dung biên bản
     body_lines = body.split('\n')
+    participants_data = [] # Tách thông tin người ký nếu có cấu trúc
+
     for line in body_lines:
         stripped_line = line.strip()
-        if stripped_line:
-            p = document.add_paragraph()
-            # Các đề mục như Thời gian, Địa điểm, Thành phần,... có thể in đậm
-            is_heading = any(stripped_line.upper().startswith(h) for h in ["THỜI GIAN:", "ĐỊA ĐIỂM:", "THÀNH PHẦN:", "CHỦ TRÌ:", "THƯ KÝ:", "NỘI DUNG:", "KẾT LUẬN:", "BIỂU QUYẾT:"])
-            align = WD_ALIGN_PARAGRAPH.LEFT if is_heading else WD_ALIGN_PARAGRAPH.JUSTIFY
-            indent = Cm(0) if is_heading else FIRST_LINE_INDENT
+        if not stripped_line: continue
+        p = document.add_paragraph()
 
-            set_paragraph_format(p, alignment=align, left_indent=Cm(0), first_line_indent=indent, line_spacing=1.5, space_after=Pt(6))
-            add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT, bold=is_heading)
+        # Logic định dạng cơ bản cho các đề mục biên bản
+        is_section_roman = re.match(r'^([IVXLCDM]+)\.\s+', stripped_line.upper()) # I, II, III
+        is_subsection_digit = re.match(r'^(\d+\.)\s+', stripped_line) # 1, 2, 3
+        is_subsubsection_alpha = re.match(r'^[a-z]\)\s+', stripped_line) # a, b, c
+        is_bullet = stripped_line.startswith("-") or stripped_line.startswith("+") or stripped_line.startswith("*")
+        is_participant_line = "chủ trì" in stripped_line.lower() or "thư ký" in stripped_line.lower() or "thành phần" in stripped_line.lower()
 
-    # Chữ ký (Thường có nhiều chữ ký: Thư ký, Chủ trì, Đại diện các bên...)
-    # Cần cấu trúc data['signatures'] phức tạp hơn [{title: 'THƯ KÝ', name: 'A'}, {title: 'CHỦ TRÌ', name: 'B'}]
-    # Tạm thời dùng chữ ký đơn
-    # Thêm dòng "Biên bản kết thúc vào lúc..."
-    p_end = document.add_paragraph(f"Biên bản kết thúc vào lúc ... giờ ... ngày ... tháng ... năm ...")
-    set_paragraph_format(p_end, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(12))
-    add_run_with_format(p_end, p_end.text, size=FONT_SIZE_DEFAULT, italic=True)
-    document.add_paragraph() # Khoảng trống
+        align = WD_ALIGN_PARAGRAPH.JUSTIFY
+        left_indent = Cm(0)
+        first_indent = FIRST_LINE_INDENT if not (is_section_roman or is_subsection_digit or is_subsubsection_alpha or is_bullet) else Cm(0)
+        is_bold = bool(is_section_roman or is_subsection_digit or is_participant_line)
+        is_italic = False
+        size = FONT_SIZE_DEFAULT
+        space_before = Pt(0)
+        space_after = Pt(6)
+        line_spacing = 1.5
 
-    # Ví dụ chữ ký Chủ trì và Thư ký (cần điều chỉnh layout table hoặc tabstop)
-    sig_table = document.add_table(rows=1, cols=2)
-    sig_table.autofit = False
-    sig_table.columns[0].width = Inches(3.0)
-    sig_table.columns[1].width = Inches(3.0)
+        if is_section_roman:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            space_before = Pt(12)
+            size = Pt(13)
+        elif is_subsection_digit:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            left_indent = Cm(0.5) # Thụt lề mục con
+            space_before = Pt(6)
+        elif is_subsubsection_alpha:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            left_indent = Cm(1.0)
+        elif is_bullet:
+             align = WD_ALIGN_PARAGRAPH.LEFT
+             left_indent = Cm(1.5)
+             first_indent = Cm(-0.5) # Hanging indent
 
-    cell_left = sig_table.cell(0, 0)
-    cell_left._element.clear_content()
-    p_left_title = cell_left.add_paragraph("THƯ KÝ") # Ví dụ
-    set_paragraph_format(p_left_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_left_title, "THƯ KÝ", size=FONT_SIZE_SIGNATURE, bold=True)
-    p_left_note = cell_left.add_paragraph("(Ký, ghi rõ họ tên)")
-    set_paragraph_format(p_left_note, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(60)) # Khoảng trống ký
-    add_run_with_format(p_left_note, "(Ký, ghi rõ họ tên)", size=Pt(11), italic=True)
-    # Tên thư ký (nếu có)
-    # p_left_name = cell_left.add_paragraph(data.get("secretary_name", " "))
-    # set_paragraph_format(p_left_name, alignment=WD_ALIGN_PARAGRAPH.CENTER)
-    # add_run_with_format(p_left_name, data.get("secretary_name", " "), size=FONT_SIZE_SIGNER_NAME, bold=True)
+        set_paragraph_format(p, alignment=align, left_indent=left_indent, first_line_indent=first_indent, line_spacing=line_spacing, space_before=space_before, space_after=space_after)
+        add_run_with_format(p, stripped_line, size=size, bold=is_bold, italic=is_italic)
 
-    cell_right = sig_table.cell(0, 1)
-    cell_right._element.clear_content()
-    p_right_title = cell_right.add_paragraph(data.get("signer_title", "CHỦ TRÌ").upper()) # Ví dụ
-    set_paragraph_format(p_right_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_right_title, data.get("signer_title", "CHỦ TRÌ").upper(), size=FONT_SIZE_SIGNATURE, bold=True)
-    p_right_note = cell_right.add_paragraph("(Ký, ghi rõ họ tên)")
-    set_paragraph_format(p_right_note, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(60)) # Khoảng trống ký
-    add_run_with_format(p_right_note, "(Ký, ghi rõ họ tên)", size=Pt(11), italic=True)
-    p_right_name = cell_right.add_paragraph(data.get("signer_name", " "))
-    set_paragraph_format(p_right_name, alignment=WD_ALIGN_PARAGRAPH.CENTER)
-    add_run_with_format(p_right_name, data.get("signer_name", " "), size=FONT_SIZE_SIGNER_NAME, bold=True)
+        # Trích xuất thông tin người ký (cần logic phức tạp hơn)
+        # if is_participant_line:
+        #    match = re.search(r'(Ông|Bà)\s+(.*?)\s+Chức vụ:\s+(.*)', stripped_line)
+        #    if match:
+        #        participants_data.append({'name': match.group(2), 'title': match.group(3)})
 
 
-    # Biên bản thường không có Nơi nhận trừ khi cần gửi đi
-    # format_recipient_list(document, data)
+    # 4. Kết thúc biên bản
+    p_end = document.add_paragraph(f"Biên bản này được lập thành ... bản, có giá trị pháp lý như nhau. Các bên đã đọc lại, thống nhất nội dung và cùng ký tên dưới đây.") # Hoặc câu kết thúc phù hợp
+    set_paragraph_format(p_end, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, space_before=Pt(12), space_after=Pt(12), first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5)
+    set_run_format(p_end.runs[0], size=FONT_SIZE_DEFAULT, italic=True)
+
+
+    # 5. Chữ ký các bên tham gia (dạng bảng)
+    # Dữ liệu chữ ký cần được gửi trong data['participants_signatures'] dưới dạng list of dicts [{'title': '...', 'name': '...'}, ...]
+    participants_signatures = data.get('participants_signatures', [])
+    if not participants_signatures:
+         # Thêm mẫu nếu không có dữ liệu
+         participants_signatures = [{'title': 'Chủ trì', 'name': '[Họ tên]'}, {'title': 'Thư ký', 'name': '[Họ tên]'}]
+    format_signatures_in_table(document, participants_signatures)
+
+    # Biên bản thường không có Nơi nhận riêng
 
     print("Định dạng Biên bản hoàn tất.")

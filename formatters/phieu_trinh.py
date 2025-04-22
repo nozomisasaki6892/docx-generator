@@ -1,75 +1,123 @@
 # formatters/phieu_trinh.py
-import re
 import time
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from utils import set_paragraph_format, set_run_format, add_run_with_format
+try:
+    # Phiếu trình thường có cấu trúc chữ ký riêng (Người trình, Người duyệt)
+    from .common_elements import format_basic_header # Có thể dùng header đơn vị
+except ImportError:
+    def format_basic_header(document, data, doc_type): pass
+
 from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT, FONT_SIZE_HEADER
 
+def format_presentation_signatures(document, presenter_data, approver_data):
+    table = document.add_table(rows=1, cols=2)
+    table.autofit = False
+    table.allow_autofit = False
+    table.columns[0].width = Cm(8.0)
+    table.columns[1].width = Cm(8.5)
+
+    # Cột Trái: Người trình
+    cell_presenter = table.cell(0, 0)
+    cell_presenter._element.clear_content()
+    p_pres_label = cell_presenter.add_paragraph("NGƯỜI TRÌNH")
+    set_paragraph_format(p_pres_label, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
+    set_run_format(p_pres_label.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
+    cell_presenter.add_paragraph("\n\n\n")
+    p_pres_name = cell_presenter.add_paragraph(presenter_data.get("name", "[Tên người trình]"))
+    set_paragraph_format(p_pres_name, alignment=WD_ALIGN_PARAGRAPH.CENTER)
+    set_run_format(p_pres_name.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
+
+    # Cột Phải: Người duyệt
+    cell_approver = table.cell(0, 1)
+    cell_approver._element.clear_content()
+    p_appr_label = cell_approver.add_paragraph(approver_data.get("title", "NGƯỜI DUYỆT").upper())
+    set_paragraph_format(p_appr_label, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
+    set_run_format(p_appr_label.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
+    cell_approver.add_paragraph("\n\n\n")
+    p_appr_name = cell_approver.add_paragraph(approver_data.get("name", "[Tên người duyệt]"))
+    set_paragraph_format(p_appr_name, alignment=WD_ALIGN_PARAGRAPH.CENTER)
+    set_run_format(p_appr_name.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
+
+
 def format(document, data):
-    print("Bắt đầu định dạng Phiếu trình (Không bảng)...")
-    # Thông tin cần từ data
-    issuing_org = data.get("issuing_org", "TÊN ĐƠN VỊ TRÌNH").upper()
-    issuing_dept = data.get("issuing_dept", None) # Bộ phận trình
-    recipient_name = data.get("recipient_name", "[Tên lãnh đạo nhận]")
-    issue_summary = data.get("issue_summary", "[Tóm tắt vấn đề trình bày]")
-    proposal = data.get("proposal", "[Nội dung đề xuất/xin ý kiến]")
-    attached_docs = data.get("attached_docs", None) # List hoặc string
+    print("Bắt đầu định dạng Phiếu trình...")
+    title = data.get("title", "PHIẾU TRÌNH").upper()
+    subject = data.get("subject", "V/v: Xin ý kiến chỉ đạo về việc ABC") # Nội dung trình
+    body = data.get("body", "Kính gửi: [Lãnh đạo duyệt]\n1. Nội dung sự việc:\n...\n2. Đề xuất/Kiến nghị:\n...\nKính trình Lãnh đạo xem xét, cho ý kiến chỉ đạo.")
+    presenter_data = data.get("presenter", {}) # {'name': '...', 'title': '...'}
+    approver_data = data.get("approver", {}) # {'name': '...', 'title': '...'}
+    issuing_date_str = data.get("issuing_date", time.strftime(f"ngày %d tháng %m năm %Y"))
 
-    # 1. Header đơn giản (Đơn vị, Ngày tháng)
-    p_org = document.add_paragraph(issuing_org)
-    set_paragraph_format(p_org, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_after=Pt(0))
-    add_run_with_format(p_org, issuing_org, size=FONT_SIZE_HEADER, bold=True)
-    if issuing_dept:
-         p_dept = document.add_paragraph(issuing_dept)
-         set_paragraph_format(p_dept, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(0), space_after=Pt(6))
-         add_run_with_format(p_dept, issuing_dept, size=Pt(11))
 
-    p_date_place = document.add_paragraph(f"{data.get('issuing_location', '........')}, ngày {time.strftime('%d')} tháng {time.strftime('%m')} năm {time.strftime('%Y')}")
-    set_paragraph_format(p_date_place, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_after=Pt(12))
-    add_run_with_format(p_date_place, p_date_place.text, size=FONT_SIZE_DEFAULT, italic=True)
+    # 1. Header (Tên đơn vị trình - nếu cần)
+    if data.get("issuing_org"):
+        format_basic_header(document, data, "PhieuTrinh")
 
-    # 2. Tên loại Phiếu trình
-    p_tenloai = document.add_paragraph("PHIẾU TRÌNH GIẢI QUYẾT CÔNG VIỆC")
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(6), space_after=Pt(12))
-    add_run_with_format(p_tenloai, "PHIẾU TRÌNH GIẢI QUYẾT CÔNG VIỆC", size=FONT_SIZE_TITLE, bold=True, uppercase=True)
+    # 2. Tên Phiếu trình
+    p_title = document.add_paragraph(title)
+    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
+    set_run_format(p_title.runs[0], size=FONT_SIZE_TITLE, bold=True)
+
+    # Nội dung trình (Trích yếu)
+    p_subject = document.add_paragraph(subject)
+    set_paragraph_format(p_subject, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
+    set_run_format(p_subject.runs[0], size=Pt(14), bold=True)
+
 
     # 3. Kính gửi
-    p_kg = document.add_paragraph(f"Kính gửi: {recipient_name}")
-    set_paragraph_format(p_kg, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_after=Pt(6))
-    add_run_with_format(p_kg, p_kg.text, size=FONT_SIZE_DEFAULT, bold=True)
-
-    # 4. Các mục nội dung
-    p_issue_label = document.add_paragraph("1. Vấn đề trình:", space_after=Pt(0))
-    add_run_with_format(p_issue_label, "1. Vấn đề trình:", bold=True)
-    p_issue_content = document.add_paragraph(issue_summary, space_before=Pt(0), space_after=Pt(6), left_indent=Cm(0.5), first_line_indent=FIRST_LINE_INDENT)
-
-    p_proposal_label = document.add_paragraph("2. Đề xuất/Xin ý kiến:", space_after=Pt(0))
-    add_run_with_format(p_proposal_label, "2. Đề xuất/Xin ý kiến:", bold=True)
-    p_proposal_content = document.add_paragraph(proposal, space_before=Pt(0), space_after=Pt(6), left_indent=Cm(0.5), first_line_indent=FIRST_LINE_INDENT)
-
-    if attached_docs:
-         p_attach_label = document.add_paragraph("3. Tài liệu kèm theo:", space_after=Pt(0))
-         add_run_with_format(p_attach_label, "3. Tài liệu kèm theo:", bold=True)
-         if isinstance(attached_docs, list):
-             for doc in attached_docs:
-                 p_doc = document.add_paragraph(f"- {doc}", space_before=Pt(0), space_after=Pt(0), left_indent=Cm(1.0))
-         else:
-              p_doc = document.add_paragraph(f"- {attached_docs}", space_before=Pt(0), space_after=Pt(0), left_indent=Cm(1.0))
+    recipient = data.get("recipient", "Kính gửi: [Tên Lãnh đạo duyệt]")
+    p_kg = document.add_paragraph(recipient)
+    set_paragraph_format(p_kg, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_after=Pt(12))
+    set_run_format(p_kg.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
 
 
-    # 5. Ý kiến Lãnh đạo (Để trống)
-    p_leader_label = document.add_paragraph("4. Ý kiến của Lãnh đạo:", space_before=Pt(12), space_after=Pt(60)) # Chừa nhiều dòng
-    add_run_with_format(p_leader_label, "4. Ý kiến của Lãnh đạo:", bold=True)
+    # 4. Nội dung trình bày
+    body_lines = body.split('\n')
+    for line in body_lines:
+        stripped_line = line.strip()
+        if not stripped_line: continue
 
-    # 6. Chữ ký người trình
-    p_signer_title = document.add_paragraph()
-    set_paragraph_format(p_signer_title, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_before=Pt(12), space_after=Pt(60))
-    add_run_with_format(p_signer_title, data.get("signer_title", "NGƯỜI TRÌNH").upper(), bold=True)
+        p = document.add_paragraph()
+        # Nội dung phiếu trình thường căn trái hoặc đều
+        is_section_digit = re.match(r'^(\d+\.)\s+', stripped_line) # Mục 1, 2
+        is_bullet = stripped_line.startswith("-") or stripped_line.startswith("+") or stripped_line.startswith("*")
 
-    p_signer_name = document.add_paragraph()
-    set_paragraph_format(p_signer_name, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_before=Pt(0))
-    add_run_with_format(p_signer_name, data.get("signer_name", "[Ký, ghi rõ họ tên]"), bold=True)
+        align = WD_ALIGN_PARAGRAPH.JUSTIFY
+        left_indent = Cm(0)
+        first_indent = FIRST_LINE_INDENT if not (is_section_digit or is_bullet) else Cm(0)
+        is_bold = bool(is_section_digit) # Mục lớn có thể đậm
+        is_italic = False
+        size = FONT_SIZE_DEFAULT
+        line_spacing = 1.5
+
+        if is_section_digit:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            space_before = Pt(6)
+        elif is_bullet:
+            align = WD_ALIGN_PARAGRAPH.LEFT
+            left_indent = Cm(0.5)
+            first_indent = Cm(-0.5) # Hanging indent
+
+        set_paragraph_format(p, alignment=align, space_after=Pt(6), first_line_indent=first_indent, left_indent=left_indent, line_spacing=line_spacing)
+
+        # Xử lý câu kết "Kính trình..."
+        if "kính trình" in stripped_line.lower() and "xem xét" in stripped_line.lower():
+             add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT, bold=True) # Đậm câu kết
+        else:
+             add_run_with_format(p, stripped_line, size=size, bold=is_bold, italic=is_italic)
 
 
-    print("Định dạng Phiếu trình (Không bảng) hoàn tất.")
+    # 5. Chữ ký (Người trình, Người duyệt)
+    document.add_paragraph() # Khoảng cách
+    format_presentation_signatures(document, presenter_data, approver_data)
+
+    # 6. Ý kiến chỉ đạo (Phần để trống cho lãnh đạo ghi) - Có thể thêm nếu cần
+    document.add_paragraph("\n")
+    p_ykien_label = document.add_paragraph("Ý KIẾN CHỈ ĐẠO:")
+    set_paragraph_format(p_ykien_label, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(12))
+    set_run_format(p_ykien_label.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
+    document.add_paragraph("\n\n\n\n") # Để trống nhiều dòng
+
+    print("Định dạng Phiếu trình hoàn tất.")

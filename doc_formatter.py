@@ -10,36 +10,37 @@ class PlaceholderFormatter:
         print(f"Warning: PlaceholderFormatter activated. Using basic paragraph.")
         document.add_paragraph(data.get('body', ''))
 
-# --- Khối Import ---
+# --- Khối Import: Import TẤT CẢ các formatter hiện có ---
 try:
-    from formatters import cong_van, quyet_dinh, chi_thi, thong_bao, ke_hoach, \
-                           nghi_quyet, quy_dinh, huong_dan, chuong_trinh, bien_ban, de_an, \
-                           thong_cao, phuong_an, du_an, cong_dien, ban_ghi_nho, ban_thoa_thuan, \
-                           giay_uy_quyen, giay_gioi_thieu, giay_nghi_phep, phieu, thu_cong, hop_dong, \
-                           luat, nghi_quyet_qh, phap_lenh, nghi_dinh_qppl, quyet_dinh_ttg, thong_tu, \
-                           thong_bao_ts, quy_che_ts, huong_dan_hs, giay_bao_trung_tuyen, quyet_dinh_ts, giay_xac_nhan_sv, \
-                           don_nhap_hoc, de_cuong_mh, quy_dinh_nt, thong_bao_nt, \
-                           bang_tot_nghiep, giao_trinh, \
-                           quy_che, to_trinh, phieu_trinh, bao_cao, giay_moi, phat_bieu, tieu_luan, \
-                           nghi_dinh
+    from formatters import ban_ghi_nho, ban_thoa_thuan, bang_tot_nghiep, bao_cao, bien_ban, \
+                           chi_thi, chuong_trinh, cong_dien, cong_van, de_an, \
+                           de_cuong_mh, don_nhap_hoc, du_an, giao_trinh, giay_bao_trung_tuyen, \
+                           giay_gioi_thieu, giay_moi, giay_nghi_phep, giay_uy_quyen, giay_xac_nhan_sv, \
+                           hop_dong, huong_dan, huong_dan_hs, ke_hoach, luat, \
+                           nghi_dinh, nghi_dinh_qppl, nghi_quyet, nghi_quyet_qh, phap_lenh, \
+                           phat_bieu, phieu, phieu_trinh, phuong_an, quy_che, \
+                           quy_che_ts, quy_dinh, quy_dinh_nt, quyet_dinh, quyet_dinh_ts, \
+                           quyet_dinh_ttg, thong_bao, thong_bao_nt, thong_bao_ts, thong_cao, \
+                           thong_tu, thu_cong, tieu_luan, to_trinh
+
     print("Tất cả formatters đã được import thành công.")
 
 except ImportError as e:
     print(f"LỖI IMPORT FORMATTERS: {e}. Sẽ sử dụng Placeholder cho các module lỗi.")
     # Gán fallback cho TẤT CẢ nếu import lỗi
-    cong_van = quyet_dinh = chi_thi = thong_bao = ke_hoach = \
-    nghi_quyet = quy_dinh = huong_dan = chuong_trinh = bien_ban = de_an = \
-    thong_cao = phuong_an = du_an = cong_dien = ban_ghi_nho = ban_thoa_thuan = \
-    giay_uy_quyen = giay_gioi_thieu = giay_nghi_phep = phieu = thu_cong = hop_dong = \
-    luat = nghi_quyet_qh = phap_lenh = nghi_dinh_qppl = quyet_dinh_ttg = thong_tu = \
-    thong_bao_ts = quy_che_ts = huong_dan_hs = giay_bao_trung_tuyen = quyet_dinh_ts = giay_xac_nhan_sv = \
-    don_nhap_hoc = de_cuong_mh = quy_dinh_nt = thong_bao_nt = \
-    bang_tot_nghiep = giao_trinh = \
-    quy_che = to_trinh = phieu_trinh = bao_cao = giay_moi = phat_bieu = tieu_luan = \
-    nghi_dinh = PlaceholderFormatter() # Chỉ gán fallback khi có lỗi
+    ban_ghi_nho = ban_thoa_thuan = bang_tot_nghiep = bao_cao = bien_ban = \
+    chi_thi = chuong_trinh = cong_dien = cong_van = de_an = \
+    de_cuong_mh = don_nhap_hoc = du_an = giao_trinh = giay_bao_trung_tuyen = \
+    giay_gioi_thieu = giay_moi = giay_nghi_phep = giay_uy_quyen = giay_xac_nhan_sv = \
+    hop_dong = huong_dan = huong_dan_hs = ke_hoach = luat = \
+    nghi_dinh = nghi_dinh_qppl = nghi_quyet = nghi_quyet_qh = phap_lenh = \
+    phat_bieu = phieu = phieu_trinh = phuong_an = quy_che = \
+    quy_che_ts = quy_dinh = quy_dinh_nt = quyet_dinh = quyet_dinh_ts = \
+    quyet_dinh_ttg = thong_bao = thong_bao_nt = thong_bao_ts = thong_cao = \
+    thong_tu = thu_cong = tieu_luan = to_trinh = PlaceholderFormatter()
 
 
-# --- Hàm nhận diện (Giữ nguyên) ---
+# --- HÀM NHẬN DIỆN: Bao gồm tất cả loại văn bản hiện có ---
 def identify_doc_type(title, body):
     body_upper = body.upper()
     title_upper = title.upper()
@@ -48,6 +49,8 @@ def identify_doc_type(title, body):
     if "BẰNG TỐT NGHIỆP" in title_upper or "CHỨNG CHỈ" in title_upper: return "BangTotNghiep"
     if "GIÁO TRÌNH" in title_upper: return "GiaoTrinh"
     if "ĐƠN XIN NHẬP HỌC" in title_upper or "PHIẾU ĐĂNG KÝ NHẬP HỌC" in title_upper: return "DonNhapHoc"
+    # if "THỜI KHÓA BIỂU" in title_upper: return "ThoiKhoaBieu" # Đã xóa
+    # if "BẢNG ĐIỂM" in title_upper or "PHIẾU ĐIỂM" in title_upper: return "BangDiem" # Đã xóa
     if "ĐỀ CƯƠNG MÔN HỌC" in title_upper or "ĐỀ CƯƠNG CHI TIẾT" in title_upper: return "DeCuongMH"
     if "QUY ĐỊNH" in title_upper and ("HỌC SINH" in body_upper or "SINH VIÊN" in body_upper or "NỘI QUY" in body_upper): return "QuyDinhNT"
     if "THÔNG BÁO" in title_upper and ("NHÀ TRƯỜNG" in body_start_upper or "KHOA" in body_start_upper or "SINH VIÊN" in body_upper): return "ThongBaoNT"
@@ -57,12 +60,14 @@ def identify_doc_type(title, body):
     if "GIẤY BÁO TRÚNG TUYỂN" in title_upper or "GIẤY BÁO NHẬP HỌC" in title_upper: return "GiayBaoTrungTuyen"
     if "QUYẾT ĐỊNH" in title_upper and ("TRÚNG TUYỂN" in title_upper or "CÔNG NHẬN SINH VIÊN" in title_upper): return "QuyetDinhTS"
     if "GIẤY XÁC NHẬN" in title_upper and ("SINH VIÊN" in title_upper or "NGƯỜI HỌC" in title_upper): return "GiayXacNhanSV"
+
     if title_upper.startswith("LUẬT") or title_upper.startswith("BỘ LUẬT"): return "Luat"
     if "NGHỊ QUYẾT" in title_upper and ("QUỐC HỘI" in body_start_upper or "QUỐC HỘI KHÓA" in body_start_upper): return "NghiQuyetQH"
     if title_upper.startswith("PHÁP LỆNH"): return "PhapLenh"
     if title_upper.startswith("NGHỊ ĐỊNH") and ("CHÍNH PHỦ" in body_start_upper or "CĂN CỨ LUẬT" in body_start_upper) and ("CHƯƠNG" in body_upper or "ĐIỀU" in body_upper): return "NghiDinhQPPL"
     if title_upper.startswith("QUYẾT ĐỊNH") and ("THỦ TƯỚNG CHÍNH PHỦ" in body_start_upper or "CĂN CỨ LUẬT" in body_start_upper) and ("ĐIỀU" in body_upper): return "QuyetDinhTTg"
     if title_upper.startswith("THÔNG TƯ"): return "ThongTu"
+
     if "GIẤY ỦY QUYỀN" in title_upper: return "GiayUyQuyen"
     if "GIẤY GIỚI THIỆU" in title_upper: return "GiayGioiThieu"
     if "GIẤY NGHỈ PHÉP" in title_upper or "ĐƠN XIN NGHỈ PHÉP" in title_upper: return "GiayNghiPhep"
@@ -85,7 +90,7 @@ def identify_doc_type(title, body):
     if "CHỈ THỊ" in title_upper: return "ChiThi"
     if "THÔNG BÁO" in title_upper: return "ThongBao"
     if "KẾ HOẠCH" in title_upper: return "KeHoach"
-    if "NGHỊ ĐỊNH" in title_upper: return "NghiDinh"
+    if "NGHỊ ĐỊNH" in title_upper: return "NghiDinh" # NĐ Hành chính
     if "QUY CHẾ" in title_upper: return "QuyChe"
     if "TỜ TRÌNH" in title_upper: return "ToTrinh"
     if "PHIẾU TRÌNH" in title_upper: return "PhieuTrinh"
@@ -94,6 +99,7 @@ def identify_doc_type(title, body):
     if "PHÁT BIỂU" in title_upper: return "PhatBieu"
     if "TIỂU LUẬN" in title_upper: return "TieuLuan"
 
+    # Nhận diện dựa trên nội dung
     if "GIÁO TRÌNH" in body_start_upper and "CHƯƠNG" in body_upper: return "GiaoTrinh"
     if "ỦY QUYỀN CHO" in body_upper and "NỘI DUNG ỦY QUYỀN" in body_upper: return "GiayUyQuyen"
     if "TRÂN TRỌNG GIỚI THIỆU ÔNG/BÀ" in body_upper and "ĐƯỢC CỬ ĐẾN" in body_upper: return "GiayGioiThieu"
@@ -114,15 +120,17 @@ def identify_doc_type(title, body):
     if "CHỈ THỊ" in body_start_upper: return "ChiThi"
     if "THÔNG BÁO" in body_start_upper and "TUYỂN SINH" not in body_upper: return "ThongBao"
     if "KẾ HOẠCH" in body_start_upper and ("MỤC ĐÍCH" in body_upper or "TỔ CHỨC THỰC HIỆN" in body_upper): return "KeHoach"
-    if "NGHỊ ĐỊNH" in body_start_upper and ("CHÍNH PHỦ" not in body_start_upper or "CHƯƠNG" not in body_upper): return "NghiDinh"
+    if "NGHỊ ĐỊNH" in body_start_upper and ("CHÍNH PHỦ" not in body_start_upper or "CHƯƠNG" not in body_upper): return "NghiDinh" # NĐ Hành chính
 
     return None
 
 
-# --- DICTIONARY ÁNH XẠ (Giữ nguyên) ---
+# --- DICTIONARY ÁNH XẠ: Bao gồm tất cả các formatter hiện có ---
 DOC_TYPE_FORMATTERS = {
+    # QPPL & Cơ bản
     "Luat": luat, "NghiQuyetQH": nghi_quyet_qh, "PhapLenh": phap_lenh,
     "NghiDinhQPPL": nghi_dinh_qppl, "QuyetDinhTTg": quyet_dinh_ttg, "ThongTu": thong_tu,
+    # Hành chính thông thường & Mẫu đơn
     "CongVan": cong_van, "QuyetDinh": quyet_dinh, "ChiThi": chi_thi, "ThongBao": thong_bao,
     "KeHoach": ke_hoach, "NghiQuyet": nghi_quyet, "QuyDinh": quy_dinh, "HuongDan": huong_dan,
     "ChuongTrinh": chuong_trinh, "BienBan": bien_ban, "DeAn": de_an, "ThongCao": thong_cao,
@@ -131,15 +139,18 @@ DOC_TYPE_FORMATTERS = {
     "GiayNghiPhep": giay_nghi_phep, "Phieu": phieu, "ThuCong": thu_cong, "HopDong": hop_dong,
     "NghiDinh": nghi_dinh, "QuyChe": quy_che, "ToTrinh": to_trinh, "PhieuTrinh": phieu_trinh,
     "BaoCao": bao_cao, "GiayMoi": giay_moi, "PhatBieu": phat_bieu, "TieuLuan": tieu_luan,
+    # Giáo dục & Tuyển sinh
     "ThongBaoTS": thong_bao_ts, "QuyCheTS": quy_che_ts, "HuongDanHS": huong_dan_hs,
     "GiayBaoTrungTuyen": giay_bao_trung_tuyen, "QuyetDinhTS": quyet_dinh_ts,
-    "GiayXacNhanSV": giay_xac_nhan_sv, "DonNhapHoc": don_nhap_hoc, #"ThoiKhoaBieu": thoi_khoa_bieu, # Đã xóa
-    #"BangDiem": bang_diem, # Đã xóa
+    "GiayXacNhanSV": giay_xac_nhan_sv, "DonNhapHoc": don_nhap_hoc,
+    # "ThoiKhoaBieu": thoi_khoa_bieu, # Đã xóa
+    # "BangDiem": bang_diem, # Đã xóa
     "DeCuongMH": de_cuong_mh, "QuyDinhNT": quy_dinh_nt,
     "ThongBaoNT": thong_bao_nt, "BangTotNghiep": bang_tot_nghiep, "GiaoTrinh": giao_trinh,
 }
 
-# --- HÀM ĐIỀU PHỐI: Sửa lỗi NameError ---
+
+# --- HÀM ĐIỀU PHỐI: Đã sửa lỗi NameError và bao gồm các loại lề đặc biệt ---
 def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
     document = Document()
     section = document.sections[0]
@@ -155,8 +166,6 @@ def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
     # Ưu tiên 1: Thử dùng loại văn bản nhận diện được
     if recognized_doc_type:
         formatter_module = DOC_TYPE_FORMATTERS.get(recognized_doc_type)
-        # Kiểm tra xem module lấy được có thực sự là formatter hợp lệ không
-        # (placeholder cũng có hàm format nên cần check type)
         if formatter_module and not isinstance(formatter_module, PlaceholderFormatter):
             doc_type_for_filename = recognized_doc_type
             print(f"Sử dụng formatter cho loại NHẬN DIỆN: formatters.{getattr(formatter_module, '__name__', 'N/A')}")
@@ -165,7 +174,7 @@ def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
                  print(f"Formatter cho loại NHẬN DIỆN '{recognized_doc_type}' không tìm thấy trong DOC_TYPE_FORMATTERS.")
             else: # Là PlaceholderFormatter
                  print(f"Formatter cho loại NHẬN DIỆN '{recognized_doc_type}' là Placeholder (có thể do import lỗi trước đó).")
-                 is_placeholder_used = True # Đánh dấu là đã gặp placeholder do lỗi import
+                 is_placeholder_used = True
             formatter_module = None # Reset để thử loại dự định
 
     # Ưu tiên 2: Nếu không thành công với loại nhận diện, thử dùng loại dự định
@@ -183,26 +192,24 @@ def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
                  is_placeholder_used = True
             formatter_module = None # Reset để dùng fallback
 
-    # Ưu tiên 3: Nếu cả hai đều không được, dùng Công văn làm mặc định cuối cùng
+    # Ưu tiên 3: Nếu cả hai đều không được, dùng fallback
     if formatter_module is None:
-        # Nếu trước đó đã gặp placeholder do lỗi import, thì giờ cũng dùng placeholder
         if is_placeholder_used:
             print("Sử dụng formatter Placeholder do lỗi import trước đó.")
-            formatter_module = PlaceholderFormatter() # Tạo instance mới để chắc chắn nó tồn tại
-            # Tên file vẫn cố gắng giữ theo intended nếu hợp lệ
+            formatter_module = PlaceholderFormatter()
             doc_type_for_filename = intended_doc_type if intended_doc_type in DOC_TYPE_FORMATTERS else "Fallback"
         else:
-            # Chỉ dùng cong_van khi import hoàn toàn thành công nhưng cả recognized và intended đều không khớp key
             print("Sử dụng formatter mặc định: formatters.cong_van")
-            formatter_module = cong_van
+            formatter_module = cong_van # Đảm bảo cong_van đã được import thành công
             doc_type_for_filename = intended_doc_type if intended_doc_type in DOC_TYPE_FORMATTERS and not isinstance(DOC_TYPE_FORMATTERS.get(intended_doc_type), PlaceholderFormatter) else "CongVan"
 
 
+    # Lấy tên module cuối cùng được chọn
     final_formatter_name = getattr(formatter_module, '__name__', 'PlaceholderFormatter')
-    doc_type_used_for_formatting = doc_type_for_filename if doc_type_for_filename else "CongVan"
+    doc_type_used_for_formatting = doc_type_for_filename if doc_type_for_filename else ("CongVan" if not is_placeholder_used else "Fallback")
 
 
-    # Thiết lập lề dựa trên loại formatter cuối cùng được chọn
+    # Thiết lập lề trang và hướng trang dựa trên loại formatter cuối cùng
     if doc_type_used_for_formatting in ["BanGhiNho", "BanThoaThuan", "HopDong"]:
         section.left_margin = MARGIN_LEFT_CONTRACT
         section.right_margin = MARGIN_RIGHT_DEFAULT
@@ -210,7 +217,7 @@ def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
     #      section.left_margin = Cm(1.5)
     #      section.right_margin = Cm(1.5)
     elif doc_type_used_for_formatting == "BangTotNghiep":
-         section.orientation = 1
+         section.orientation = 1 # WD_ORIENTATION.LANDSCAPE = 1
          section.page_width = Cm(29.7)
          section.page_height = Cm(21.0)
          section.left_margin = Cm(1.5)
@@ -218,13 +225,15 @@ def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
          section.top_margin = Cm(1.5)
          section.bottom_margin = Cm(1.5)
     elif doc_type_used_for_formatting == "TieuLuan":
-        section.left_margin = Cm(3.0)
-        section.right_margin = Cm(2.0)
+        # Lề tiểu luận thường khác biệt
+        section.left_margin = Cm(3.0) # Lề trái rộng hơn
+        section.right_margin = Cm(2.0) # Lề phải hẹp hơn
         section.top_margin = Cm(2.5)
         section.bottom_margin = Cm(2.5)
-    else:
+    else: # Lề mặc định cho các loại văn bản khác
         section.left_margin = MARGIN_LEFT_DEFAULT
         section.right_margin = MARGIN_RIGHT_DEFAULT
+
 
     # Gọi hàm format của module đã chọn
     if hasattr(formatter_module, 'format'):
@@ -234,13 +243,16 @@ def apply_docx_formatting(data, recognized_doc_type, intended_doc_type):
              print(f"Lỗi khi chạy formatter cho {doc_type_used_for_formatting} ({final_formatter_name}): {e}")
              import traceback
              traceback.print_exc()
-             document.add_paragraph(f"Lỗi định dạng văn bản loại '{doc_type_used_for_formatting}': {e}")
+             # Thêm thông báo lỗi vào tài liệu để dễ debug
+             document.add_paragraph(f"--- Lỗi định dạng văn bản ---")
+             document.add_paragraph(f"Loại văn bản: {doc_type_used_for_formatting}")
+             document.add_paragraph(f"Lỗi: {e}")
+             document.add_paragraph(f"Xem chi tiết trong log của server.")
     else:
-        # Trường hợp này ít xảy ra hơn nếu dùng Placeholder đúng cách
         print(f"Lỗi: Module {final_formatter_name} không có hàm format(document, data).")
         document.add_paragraph(f"Lỗi: Không thể định dạng văn bản loại '{doc_type_used_for_formatting}'.")
 
 
     print("Định dạng Word hoàn tất.")
     # Trả về document và loại dùng cho tên file
-    return document, doc_type_for_filename
+    return document, doc_type_used_for_formatting # Trả về loại đã thực sự dùng để định dạng

@@ -1,5 +1,4 @@
 # formatters/giay_moi.py
-import re
 import time
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -7,71 +6,80 @@ from utils import set_paragraph_format, set_run_format, add_run_with_format
 try:
     from .common_elements import format_basic_header, format_signature_block, format_recipient_list
 except ImportError:
-    from common_elements import format_basic_header, format_signature_block, format_recipient_list
-from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT, FONT_SIZE_VV
+    # Fallback nếu chạy độc lập
+    def format_basic_header(document, data, doc_type): pass
+    def format_signature_block(document, data): pass
+    def format_recipient_list(document, data): pass
+
+from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FIRST_LINE_INDENT
 
 def format(document, data):
     print("Bắt đầu định dạng Giấy mời...")
-    title = data.get("title", "Giấy mời họp/tham dự sự kiện ABC")
-    body = data.get("body", "Nội dung giấy mời...")
-    recipients_to = data.get("recipients_to", "Kính gửi: Ông/Bà [Tên người được mời]")
-    event_subject = data.get("event_subject", title.replace("Giấy mời", "").strip()) # Chủ đề sự kiện
-    issuing_org = data.get("issuing_org", "TÊN ĐƠN VỊ MỜI").upper()
+    title = "GIẤY MỜI"
+    body = data.get("body", "Trân trọng kính mời Ông/Bà:...\nTới dự:...\nThời gian:...\nĐịa điểm:...\nRất mong Ông/Bà thu xếp thời gian đến dự.")
+    recipient_name = data.get("recipient_name", "Kính gửi: Ông/Bà [Tên người được mời]") # Tên người mời cụ thể
 
-    # 1. Header
-    data['issuing_org'] = issuing_org
+
+    # 1. Header (Sử dụng header cơ bản)
     format_basic_header(document, data, "GiayMoi")
 
-    # 2. V/v (Nếu có, căn trái dưới số KH)
-    p_vv = document.add_paragraph()
-    set_paragraph_format(p_vv, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(0), space_after=Pt(6))
-    add_run_with_format(p_vv, f"V/v: {event_subject}", size=FONT_SIZE_VV) # Size 12
 
-    # 3. Tên loại GIẤY MỜI
-    p_tenloai = document.add_paragraph("GIẤY MỜI")
-    set_paragraph_format(p_tenloai, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(12))
-    add_run_with_format(p_tenloai, "GIẤY MỜI", size=FONT_SIZE_TITLE, bold=True, uppercase=True)
+    # 2. Tên loại văn bản
+    p_title = document.add_paragraph(title)
+    set_paragraph_format(p_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(18))
+    set_run_format(p_title.runs[0], size=FONT_SIZE_TITLE, bold=True)
 
-    # 4. Kính gửi
-    p_kg = document.add_paragraph(recipients_to)
+
+    # 3. Kính gửi (Tên người được mời)
+    p_kg = document.add_paragraph(recipient_name)
     set_paragraph_format(p_kg, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    add_run_with_format(p_kg, recipients_to, size=FONT_SIZE_DEFAULT, bold=True)
+    set_run_format(p_kg.runs[0], size=FONT_SIZE_DEFAULT, bold=True)
 
-    # 5. Nội dung mời
-    p_intro = document.add_paragraph()
-    set_paragraph_format(p_intro, first_line_indent=FIRST_LINE_INDENT)
-    add_run_with_format(p_intro, f"{issuing_org} trân trọng kính mời Ông/Bà tới dự:") # Hoặc Đến tham dự...
-
+    # 4. Nội dung mời
     body_lines = body.split('\n')
+    inviting_org = data.get("issuing_org", "[Tên cơ quan mời]")
+    p_intro = document.add_paragraph(f"{inviting_org} trân trọng kính mời:") # Có thể bỏ nếu Kính gửi đã rõ
+    set_paragraph_format(p_intro, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_after=Pt(6), first_line_indent=FIRST_LINE_INDENT, line_spacing=1.5)
+    set_run_format(p_intro.runs[0], size=FONT_SIZE_DEFAULT)
+
     for line in body_lines:
         stripped_line = line.strip()
-        if stripped_line:
-            p = document.add_paragraph()
-            # Nhận diện các mục thông tin (Thời gian, Địa điểm, Nội dung...)
-            is_info_heading = any(stripped_line.startswith(h) for h in ["Thời gian:", "Địa điểm:", "Nội dung:", "Thành phần:", "Chủ trì:", "Chương trình:"])
-            left_indent = Cm(0.5) if is_info_heading else Cm(0)
-            first_indent = Cm(0) if is_info_heading else FIRST_LINE_INDENT
+        if not stripped_line or "trân trọng kính mời" in stripped_line.lower(): continue # Bỏ dòng đầu nếu có trong body
 
-            set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.LEFT, left_indent=left_indent, first_line_indent=first_indent, line_spacing=1.5, space_after=Pt(6))
-            # Có thể tách và in đậm phần label (Thời gian:, Địa điểm:)
-            match = re.match(r'^([\w\s]+:)(.*)', stripped_line)
-            if match and is_info_heading:
-                add_run_with_format(p, match.group(1), bold=True)
-                add_run_with_format(p, match.group(2))
+        p = document.add_paragraph()
+        is_info_line = ":" in stripped_line and len(stripped_line.split(":")[0]) < 30
+
+        align = WD_ALIGN_PARAGRAPH.LEFT
+        first_indent = Cm(0) # Thông tin mời thường căn trái, không thụt lề
+
+        set_paragraph_format(p, alignment=align, space_after=Pt(6), first_line_indent=first_indent, left_indent=Cm(1.0), line_spacing=1.5) # Thụt lề nội dung mời
+
+        if is_info_line:
+            parts = stripped_line.split(":", 1)
+            # In đậm nhãn thông tin quan trọng
+            if "tới dự" in parts[0].lower() or "thời gian" in parts[0].lower() or "địa điểm" in parts[0].lower():
+                 add_run_with_format(p, parts[0] + ":", size=FONT_SIZE_DEFAULT, bold=True)
+                 add_run_with_format(p, parts[1], size=FONT_SIZE_DEFAULT, bold=True)
             else:
-                add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT)
+                 add_run_with_format(p, parts[0] + ":", size=FONT_SIZE_DEFAULT)
+                 add_run_with_format(p, parts[1], size=FONT_SIZE_DEFAULT)
+        elif "rất mong" in stripped_line.lower():
+            # Đoạn kết mời không thụt lề trái
+            set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6), first_line_indent=Cm(0), left_indent=Cm(0), line_spacing=1.5)
+            add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT, italic=False, bold=True) # Câu kết đậm
+        else:
+             add_run_with_format(p, stripped_line, size=FONT_SIZE_DEFAULT)
 
-    # 6. Lời kết
-    p_closing = document.add_paragraph("Rất mong Ông/Bà sắp xếp thời gian tham dự.")
-    set_paragraph_format(p_closing, alignment=WD_ALIGN_PARAGRAPH.LEFT, first_line_indent=FIRST_LINE_INDENT, space_before=Pt(6), space_after=Pt(6))
-    add_run_with_format(p_closing, p_closing.text, size=FONT_SIZE_DEFAULT, italic=True)
 
-
-    # 7. Chữ ký
+    # 5. Chữ ký (Sử dụng khối chữ ký cơ bản)
+    # Chức vụ người ký giấy mời
+    if 'signer_title' not in data: data['signer_title'] = "THỦ TRƯỞNG CƠ QUAN"
+    if 'signer_name' not in data: data['signer_name'] = "[Họ và tên]"
+    document.add_paragraph()
     format_signature_block(document, data)
 
-    # 8. Nơi nhận (Tùy chọn)
-    if data.get('recipients'):
-         format_recipient_list(document, data)
+    # 6. Nơi nhận (Thường chỉ có Lưu VT)
+    if 'recipients' not in data: data['recipients'] = ["- Như trên;", "- Lưu: VT."]
+    format_recipient_list(document, data)
 
     print("Định dạng Giấy mời hoàn tất.")

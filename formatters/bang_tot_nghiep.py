@@ -1,102 +1,94 @@
 # formatters/bang_tot_nghiep.py
-import re
 import time
-from docx import Document
 from docx.shared import Pt, Cm, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-from utils import set_paragraph_format, set_run_format, add_run_with_format
-from config import FONT_SIZE_DEFAULT, FONT_SIZE_TITLE, FONT_NAME, FONT_SIZE_HEADER, FONT_SIZE_SIGNATURE, FONT_SIZE_SIGNER_NAME
+from docx.enum.section import WD_ORIENTATION
+from utils import set_paragraph_format, set_run_format, add_run_with_format, add_centered_text
+from config import FONT_SIZE_DEFAULT
+
+# Lưu ý: Định dạng bằng tốt nghiệp rất phức tạp và đa dạng, phụ thuộc mẫu cụ thể.
+# Code này chỉ tạo cấu trúc cơ bản, cần tùy chỉnh nhiều theo mẫu thực tế.
 
 def format(document, data):
-    print("Bắt đầu định dạng Bằng tốt nghiệp/Chứng chỉ (Cơ bản)...")
-    # Thông tin cơ bản cần thiết
-    degree_type = data.get("degree_type", "BẰNG TỐT NGHIỆP ĐẠI HỌC").upper() # HOẶC CHỨNG CHỈ...
-    recipient = data.get("recipient", {"name": "[HỌ TÊN NGƯỜI NHẬN]", "dob": "__/__/____"})
-    major = data.get("major", "[Ngành đào tạo]")
-    degree_class = data.get("degree_class", "[Hạng tốt nghiệp]") # Xuất sắc, Giỏi, Khá, Trung bình
-    mode_of_study = data.get("mode_of_study", "Chính quy") # Chính quy, Vừa làm vừa học,...
-    conferral_decision_num = data.get("conferral_decision_num", "Số .../QĐ-...")
-    conferral_date_str = data.get("conferral_date", time.strftime("ngày %d tháng %m năm %Y"))
-    diploma_number = data.get("diploma_number", "Số vào sổ cấp bằng: ...")
-    issuing_org = data.get("issuing_org", "TÊN TRƯỜNG").upper()
-    issuing_org_parent = data.get("issuing_org_parent", None) # VD: BỘ GIÁO DỤC VÀ ĐÀO TẠO
+    print("Bắt đầu định dạng Bằng tốt nghiệp (cơ bản)...")
+
+    # Lấy dữ liệu - cần chuẩn hóa key từ data
+    university_name = data.get("university_name", "TRƯỜNG ĐẠI HỌC ABC").upper()
+    degree_title = data.get("degree_title", "BẰNG CỬ NHÂN").upper()
+    student_name = data.get("student_name", "Nguyễn Văn A").upper()
+    dob = data.get("dob", "01/01/2000")
+    major = data.get("major", "Công nghệ Thông tin")
+    graduation_rank = data.get("graduation_rank", "Xuất sắc")
+    degree_mod = data.get("degree_mod", "Chính quy") # Mode of Degree
+    decision_number = data.get("decision_number", "Số 123/QĐ-ĐHABC")
+    decision_date = data.get("decision_date", "ngày 15 tháng 6 năm 2025")
+    diploma_number = data.get("diploma_number", "Số vào sổ: 12345")
     issuing_location = data.get("issuing_location", "Hà Nội")
-    signer_title = data.get("signer_title", "HIỆU TRƯỞNG").upper()
-    signer_name = data.get("signer_name", "[Tên Hiệu trưởng]")
-
-    # ---- Cấu trúc văn bản cơ bản ----
-    # (Bỏ qua các yếu tố đồ họa, chỉ tập trung vào text)
-
-    # 1. Đơn vị cấp trên (nếu có) và Tên trường
-    if issuing_org_parent:
-        p_parent = document.add_paragraph(issuing_org_parent.upper())
-        set_paragraph_format(p_parent, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(2))
-        add_run_with_format(p_parent, p_parent.text, size=Pt(12), bold=False) # Cấp trên thường không đậm
-    p_org = document.add_paragraph(issuing_org)
-    set_paragraph_format(p_org, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    add_run_with_format(p_org, issuing_org, size=FONT_SIZE_HEADER, bold=True)
-
-    # 2. Quốc hiệu / Tiêu ngữ
-    p_qh = document.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
-    set_paragraph_format(p_qh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_qh, p_qh.text, size=Pt(12), bold=True) # QH nhỏ hơn tên bằng
-    p_tn = document.add_paragraph("Độc lập - Tự do - Hạnh phúc")
-    set_paragraph_format(p_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    add_run_with_format(p_tn, p_tn.text, size=Pt(13), bold=True)
-    p_line_tn = document.add_paragraph("-" * 15)
-    set_paragraph_format(p_line_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(24))
-
-    # 3. Tên Bằng/Chứng chỉ
-    p_degree_title = document.add_paragraph(degree_type)
-    set_paragraph_format(p_degree_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(18))
-    # Cỡ chữ tên bằng thường rất lớn và font đặc biệt (khó tái tạo)
-    add_run_with_format(p_degree_title, degree_type, size=Pt(24), bold=True) # Cỡ chữ lớn ví dụ
-
-    # 4. Thông tin người nhận
-    p_recipient_intro = document.add_paragraph("Chứng nhận Ông/Bà:") # Hoặc Cấp cho Ông/Bà
-    set_paragraph_format(p_recipient_intro, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
-    add_run_with_format(p_recipient_intro, p_recipient_intro.text, size=FONT_SIZE_DEFAULT)
-
-    p_recipient_name = document.add_paragraph(recipient['name'].upper())
-    set_paragraph_format(p_recipient_name, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
-    add_run_with_format(p_recipient_name, p_recipient_name.text, size=Pt(16), bold=True, uppercase=True) # Tên người nhận to, đậm
-
-    p_recipient_dob = document.add_paragraph(f"Sinh ngày: {recipient['dob']}")
-    set_paragraph_format(p_recipient_dob, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    add_run_with_format(p_recipient_dob, p_recipient_dob.text, size=FONT_SIZE_DEFAULT)
-
-    # 5. Nội dung công nhận
-    p_major = document.add_paragraph(f"Đã tốt nghiệp ngành: {major}")
-    set_paragraph_format(p_major, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
-    add_run_with_format(p_major, p_major.text, size=FONT_SIZE_DEFAULT, bold=True) # Ngành đậm
-
-    p_class_mode = document.add_paragraph(f"Hạng tốt nghiệp: {degree_class} - Hình thức đào tạo: {mode_of_study}")
-    set_paragraph_format(p_class_mode, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(12))
-    add_run_with_format(p_class_mode, p_class_mode.text, size=FONT_SIZE_DEFAULT)
-
-    # 6. Thông tin quyết định và ngày cấp
-    p_decision = document.add_paragraph(f"Theo Quyết định số {conferral_decision_num} ngày {conferral_date_str}")
-    set_paragraph_format(p_decision, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
-    add_run_with_format(p_decision, p_decision.text, size=FONT_SIZE_DEFAULT)
-
-    p_issue_date = document.add_paragraph(f"{issuing_location}, ngày {time.strftime('%d')} tháng {time.strftime('%m')} năm {time.strftime('%Y')}")
-    set_paragraph_format(p_issue_date, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_before=Pt(12), space_after=Pt(0))
-    add_run_with_format(p_issue_date, p_issue_date.text, size=FONT_SIZE_DEFAULT, italic=True)
+    issuing_date_str = data.get("issuing_date", time.strftime(f"ngày %d tháng %m năm %Y"))
+    rector_title = data.get("rector_title", "HIỆU TRƯỞNG").upper()
+    rector_name = data.get("rector_name", "GS.TS. Trần Văn B")
 
 
-    # 7. Chữ ký Hiệu trưởng
-    sig_paragraph = document.add_paragraph()
-    set_paragraph_format(sig_paragraph, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_before=Pt(6), space_after=Pt(0), line_spacing=1.15)
-    add_run_with_format(sig_paragraph, signer_title + "\n\n\n\n\n", size=FONT_SIZE_SIGNATURE, bold=True)
-    add_run_with_format(sig_paragraph, signer_name, size=FONT_SIZE_SIGNER_NAME, bold=True)
+    # Định dạng trang ngang (Landscape) - Di chuyển ra doc_formatter.py
+    # section = document.sections[0]
+    # section.orientation = WD_ORIENTATION.LANDSCAPE
+    # section.page_width = Cm(29.7)
+    # section.page_height = Cm(21.0)
+    # section.left_margin = Cm(1.5)
+    # section.right_margin = Cm(1.5)
+    # section.top_margin = Cm(1.5)
+    # section.bottom_margin = Cm(1.5)
+
+    # Cấu trúc thường dùng Table để định vị
+    # Ví dụ đơn giản dùng paragraph căn giữa
+
+    add_centered_text(document, "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", size=Pt(12), bold=True, space_after=0)
+    add_centered_text(document, "Độc lập - Tự do - Hạnh phúc", size=Pt(13), bold=True, space_after=12)
+
+    add_centered_text(document, university_name, size=Pt(14), bold=True, space_after=18)
+
+    add_centered_text(document, degree_title, size=Pt(24), bold=True, space_after=18)
+
+    add_centered_text(document, f"Chứng nhận Sinh viên: {student_name}", size=Pt(14), bold=True, space_after=6)
+    add_centered_text(document, f"Ngày sinh: {dob}", size=Pt(14), space_after=12)
+
+    add_centered_text(document, f"Đã tốt nghiệp ngành: {major}", size=Pt(14), bold=True, space_after=6)
+    add_centered_text(document, f"Xếp loại tốt nghiệp: {graduation_rank}", size=Pt(14), space_after=6)
+    add_centered_text(document, f"Hình thức đào tạo: {degree_mod}", size=Pt(14), space_after=12)
+
+    add_centered_text(document, f"Theo Quyết định số {decision_number} {decision_date}", size=Pt(12), space_after=18)
 
 
-    # 8. Số vào sổ (thường góc dưới trái)
-    p_diploma_num = document.add_paragraph(diploma_number)
-    # Cần đặt vị trí tuyệt đối hoặc dùng text box/footer (phức tạp)
-    # Tạm đặt ở cuối cùng, căn trái
-    set_paragraph_format(p_diploma_num, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(12))
-    add_run_with_format(p_diploma_num, diploma_number, size=Pt(10))
+    # Số vào sổ và Ngày cấp
+    table = document.add_table(rows=1, cols=2)
+    table.autofit = False
+    table.allow_autofit = False
+    # Điều chỉnh độ rộng cột phù hợp với trang ngang
+    table.columns[0].width = Inches(4.5)
+    table.columns[1].width = Inches(4.5)
+
+    cell_left = table.cell(0, 0)
+    cell_right = table.cell(0, 1)
+    cell_left._element.clear_content()
+    cell_right._element.clear_content()
+
+    p_diploma_num = cell_left.add_paragraph(diploma_number)
+    set_paragraph_format(p_diploma_num, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12))
+    set_run_format(p_diploma_num.runs[0], size=Pt(12))
+
+    p_issue_date = cell_right.add_paragraph(f"{issuing_location}, {issuing_date_str}")
+    set_paragraph_format(p_issue_date, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12))
+    set_run_format(p_issue_date.runs[0], size=Pt(12), italic=True)
+
+
+    # Chữ ký Hiệu trưởng
+    p_rector_title = cell_right.add_paragraph(rector_title)
+    set_paragraph_format(p_rector_title, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(12), space_after=Pt(6))
+    set_run_format(p_rector_title.runs[0], size=Pt(14), bold=True)
+    cell_right.add_paragraph("\n\n\n\n")
+    p_rector_name = cell_right.add_paragraph(rector_name)
+    set_paragraph_format(p_rector_name, alignment=WD_ALIGN_PARAGRAPH.CENTER)
+    set_run_format(p_rector_name.runs[0], size=Pt(14), bold=True)
+
 
     print("Định dạng Bằng tốt nghiệp (cơ bản) hoàn tất.")
-    print("LƯU Ý: Định dạng này chỉ chứa text, không bao gồm các yếu tố đồ họa của bằng thật.")
