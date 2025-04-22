@@ -31,21 +31,25 @@ FIRST_LINE_INDENT = Cm(1.0)
 LINE_SPACING_DEFAULT = 1.5
 
 AI_PROMPT_TEMPLATE = """
-Bạn là một trợ lý biên tập viên tiếng Việt chuyên nghiệp. Hãy đọc kỹ nội dung dưới đây và thực hiện các việc sau:
-1. Sửa lỗi chính tả, ngữ pháp.
-2. Loại bỏ từ ngữ thừa, câu lặp, diễn đạt khó hiểu.
-3. Đảm bảo văn phong mạch lạc, rõ ràng, trang trọng, phù hợp với ngữ cảnh văn bản hành chính/công việc.
-4. Giữ nguyên ý nghĩa gốc và các thông tin quan trọng như tên riêng, số liệu, địa danh.
-5. Nếu phát hiện các phần tiêu đề không chuẩn như “DỰ ÁN”, “CÔNG VĂN”, “VĂN BẢN” hoặc các cụm từ không cần thiết ở đầu văn bản — hãy **xóa toàn bộ phần tiêu đề đó**.
-6. Nếu nội dung có chứa phần chữ ký hoặc lời kết như:
-   - "Trân trọng", "Kính thư", "TM.", "KT.", "Ký tên", "(Ký tên, đóng dấu)", "[Chức vụ]", "[Tên người ký]", tên thật của người ký, v.v...
-   - Hãy **trích xuất tên người ký và chức danh**, và đặt vào 2 thẻ riêng như sau:
-     [SIGNATURE_POSITION]Chức danh[/SIGNATURE_POSITION]
-     [SIGNATURE_NAME]Tên người ký[/SIGNATURE_NAME]
-   - Sau đó, **xóa toàn bộ phần chữ ký này khỏi nội dung chính** để tránh bị trùng chữ ký.
-7. KHÔNG thêm: Quốc hiệu, Tiêu ngữ, Số ký hiệu, Ngày tháng, Nơi nhận, Chữ ký. Các thành phần này sẽ được hệ thống backend xử lý định dạng chuẩn theo loại văn bản.
+Bạn là một trợ lý biên tập viên tiếng Việt chuyên nghiệp cao cấp, cực kỳ cẩn thận và tuân thủ nghiêm ngặt yêu cầu. Hãy đọc kỹ nội dung dưới đây và thực hiện chính xác các việc sau:
 
-Trả về **CHỈ** nội dung đã được làm sạch, loại bỏ tiêu đề và chữ ký, có đánh dấu tag chữ ký nếu có.
+1.  **Sửa lỗi chính tả, ngữ pháp:** Đảm bảo câu chữ tiếng Việt chuẩn mực.
+2.  **Tối ưu văn phong:** Loại bỏ từ ngữ thừa, Phần tiêu đề của văn bản (vì phần này đã được định dạng trong các văn bản chuẩn, không cần phần này nữa) câu lặp, diễn đạt khó hiểu. Đảm bảo văn phong mạch lạc, rõ ràng, trang trọng, phù hợp với ngữ cảnh văn bản hành chính/công việc. Giữ nguyên các thuật ngữ chuyên ngành nếu có.
+3.  **Bảo toàn nội dung cốt lõi:** Giữ nguyên ý nghĩa gốc và các thông tin quan trọng như tên riêng (người, tổ chức, địa danh), số liệu, ngày tháng cụ thể có trong nội dung.
+4.  **Xử lý tiêu đề không chuẩn:** Nếu phát hiện các phần text ở đầu văn bản rõ ràng không phải nội dung chính mà là tiêu đề tự thêm như “DỰ ÁN: ABC”, “CÔNG VĂN GỬI XYZ”, “VĂN BẢN THÔNG BÁO”, hoặc các dòng tương tự không thuộc cấu trúc chuẩn của thân văn bản — hãy **xóa bỏ hoàn toàn** các dòng tiêu đề không chuẩn đó.
+5.  **XỬ LÝ TRIỆT ĐỂ PHẦN CHỮ KÝ/KẾT THÚC (Quan trọng nhất):**
+    * Rà soát kỹ phần cuối của nội     * Nếu phát hiện bất kỳ dấu hiệu nào của phần chữ ký hoặc lời kết thúdung văn bản (Nếu trong văn bản quá dài như hợp đồng có nhiều chỗ cần ký phải xác định xóa cả những phần này nữa).
+c thư, bao gồm nhưng không giới hạn ở các cụm từ/cấu trúc như:
+        * Lời kết: "Trân trọng,", "Kính thư,", "Xin cảm ơn,", "Trân trọng kính chào,", "Kính đề nghị xem xét,", "Xin chân thành cảm ơn."
+        * Chữ ký viết tắt/thay mặt: "TM.", "KT.", "TL.", "TUQ.", "Q." (Quyền), "PHỤ TRÁCH", "THỪA LỆNH", "THỪA ỦY QUYỀN"
+        * Hướng dẫn ký: "(Ký tên, đóng dấu)", "(Ký, ghi rõ họ tên)", "(Đã ký)"
+        * Placeholder: "[Chức vụ]", "[Tên người ký]", "(Họ tên, chức vụ)"
+        * Chức danh (thường viết hoa): GIÁM ĐỐC, TỔNG GIÁM ĐỐC, CHỦ TỊCH, PHÓ CHỦ TỊCH, TRƯỞNG PHÒNG, PHÓ TRƯỞNG PHÒNG, HIỆU TRƯỞNG, PHÓ HIỆU TRƯỞNG, CHÁNH VĂN PHÒNG, THỦ TRƯỞNG ĐƠN VỊ, BAN GIÁM HIỆU,...
+        * Tên riêng và/hoặc chức danh đứng một mình hoặc theo cụm ở cuối văn bản (ví dụ: Nguyễn Văn A, Phó Giám đốc Nguyễn Văn B).
+        * Các dòng trống liên tiếp theo sau bởi tên/chức danh.
+    * --> Hãy **XÓA SẠCH TOÀN BỘ CÁC DÒNG/CỤM TỪ ĐÓ KHỎI NỘI DUNG**. Mục tiêu là loại bỏ hoàn toàn mọi dấu vết của chữ ký hoặc lời kết thúc do người dùng tự thêm vào. Đảm bảo nội dung trả về kết thúc ngay sau phần nội dung chính cuối cùng, không còn sót lại bất kỳ yếu tố nào của chữ ký hay lời kết.
+6.  **KHÔNG THÊM BẤT CỨ THỨ GÌ:** Tuyệt đối không tự ý thêm vào các thành phần như Quốc hiệu, Tiêu ngữ, Số ký hiệu, Ngày tháng ban hành, Nơi nhận, hoặc bất kỳ khối chữ ký nào. Việc này sẽ do hệ thống backend xử lý sau.
+7.  **Kết quả trả về:** Trả về **CHỈ DUY NHẤT** phần nội dung văn bản đã được làm sạch và đã **XÓA HOÀN TOÀN** phần chữ ký/lời kết nếu có. Đảm bảo không có ký tự lạ, định dạng markdown (như ```) hoặc lời dẫn giải nào trong kết quả trả về.
 
 Nội dung cần xử lý:
 {text_input}
