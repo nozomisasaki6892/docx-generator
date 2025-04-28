@@ -1,19 +1,20 @@
 # common_elements.py
 import time
+import traceback
 from docx.shared import Pt, Cm, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from utils import set_paragraph_format, set_run_format, add_run_with_format, add_paragraph_with_text
-# Import các hằng số đã chuẩn hóa từ config
 from config import (
-    FONT_NAME,
-    FONT_SIZE_HEADER_13, FONT_SIZE_MEDIUM_14, FONT_SIZE_MEDIUM_13,
+    FONT_NAME, FONT_SIZE_HEADER_13, FONT_SIZE_MEDIUM_14, FONT_SIZE_MEDIUM_13,
     FONT_SIZE_SIGN_AUTH_14, FONT_SIZE_SIGN_NAME_14,
     FONT_SIZE_RECIPIENT_LABEL_12, FONT_SIZE_RECIPIENT_LIST_11,
     FONT_SIZE_OTHER_11
 )
 
+# --- Các hàm add_... với try-except chi tiết hơn ---
+
 def add_quoc_hieu_tieu_ngu(table_cell):
-    """Thêm Quốc hiệu và Tiêu ngữ vào ô bảng (Ô số 1)."""
+    print("  common: Adding Quoc Hieu Tieu Ngu...")
     try:
         paragraph_qh = table_cell.add_paragraph()
         set_paragraph_format(paragraph_qh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
@@ -26,12 +27,15 @@ def add_quoc_hieu_tieu_ngu(table_cell):
         paragraph_line = table_cell.add_paragraph()
         set_paragraph_format(paragraph_line, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
         add_run_with_format(paragraph_line, "_______________", size=FONT_SIZE_MEDIUM_14, bold=True)
+        print("  common: Added Quoc Hieu Tieu Ngu OK.")
     except Exception as e:
-        print(f"Error adding Quoc Hieu Tieu Ngu: {e}")
-        table_cell.add_paragraph(f"[Error QH-TN: {e}]") # Ghi lỗi vào cell
+        print(f"  ERROR in add_quoc_hieu_tieu_ngu: {e}")
+        print(traceback.format_exc())
+        try: table_cell.add_paragraph(f"[Lỗi QH-TN: {e}]")
+        except: pass # Bỏ qua nếu không thêm được vào cell
 
 def add_ten_co_quan_ban_hanh(table_cell, ten_co_quan_chu_quan, ten_co_quan_ban_hanh):
-    """Thêm Tên cơ quan chủ quản (nếu có) và Tên cơ quan ban hành (Ô số 2)."""
+    print("  common: Adding Ten Co Quan...")
     try:
         if ten_co_quan_chu_quan:
             paragraph_cqcq = table_cell.add_paragraph()
@@ -45,46 +49,49 @@ def add_ten_co_quan_ban_hanh(table_cell, ten_co_quan_chu_quan, ten_co_quan_ban_h
         paragraph_line = table_cell.add_paragraph()
         set_paragraph_format(paragraph_line, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
         add_run_with_format(paragraph_line, "________", size=FONT_SIZE_HEADER_13, bold=True)
+        print("  common: Added Ten Co Quan OK.")
     except Exception as e:
-        print(f"Error adding Ten Co Quan: {e}")
-        table_cell.add_paragraph(f"[Error Ten CQ: {e}]")
+        print(f"  ERROR in add_ten_co_quan_ban_hanh: {e}")
+        print(traceback.format_exc())
+        try: table_cell.add_paragraph(f"[Lỗi Ten CQ: {e}]")
+        except: pass
 
 def add_so_ky_hieu(table_cell, so_van_ban, ky_hieu_van_ban):
-    """Thêm Số, ký hiệu văn bản vào ô bảng (Ô số 3)."""
+    print("  common: Adding So Ky Hieu...")
     try:
         paragraph_skh = table_cell.add_paragraph()
         set_paragraph_format(paragraph_skh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
         add_run_with_format(paragraph_skh, f"Số: {so_van_ban}/", size=FONT_SIZE_MEDIUM_13, bold=False)
         add_run_with_format(paragraph_skh, ky_hieu_van_ban.upper(), size=FONT_SIZE_MEDIUM_13, bold=False)
+        print("  common: Added So Ky Hieu OK.")
     except Exception as e:
-        print(f"Error adding So Ky Hieu: {e}")
-        table_cell.add_paragraph(f"[Error SKH: {e}]")
+        print(f"  ERROR in add_so_ky_hieu: {e}")
+        print(traceback.format_exc())
+        try: table_cell.add_paragraph(f"[Lỗi SKH: {e}]")
+        except: pass
 
 def add_dia_danh_thoi_gian(table_cell, dia_danh, ngay, thang, nam):
-    """Thêm Địa danh, thời gian ban hành vào ô bảng (Ô số 4)."""
+    print("  common: Adding Dia Danh Thoi Gian...")
     try:
         paragraph_ddtg = table_cell.add_paragraph()
-        # Căn giữa trong ô phải của bảng header
         set_paragraph_format(paragraph_ddtg, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
         thoi_gian_str = f"ngày {ngay:02d} tháng {thang:02d} năm {nam}"
         add_run_with_format(paragraph_ddtg, f"{dia_danh}, {thoi_gian_str}", size=FONT_SIZE_MEDIUM_13, italic=True)
+        print("  common: Added Dia Danh Thoi Gian OK.")
     except Exception as e:
-        print(f"Error adding Dia Danh Thoi Gian: {e}")
-        table_cell.add_paragraph(f"[Error DDTG: {e}]")
-
+        print(f"  ERROR in add_dia_danh_thoi_gian: {e}")
+        print(traceback.format_exc())
+        try: table_cell.add_paragraph(f"[Lỗi DDTG: {e}]")
+        except: pass
 
 def add_signature_block(
-    document,
-    authority_signer=None,
-    signer_title="",
-    signer_name="",
-    signer_note=None,
-    alignment=WD_ALIGN_PARAGRAPH.RIGHT, # Mặc định căn phải cho HC
-    use_table=True
+    document, authority_signer=None, signer_title="", signer_name="",
+    signer_note=None, alignment=WD_ALIGN_PARAGRAPH.RIGHT, use_table=True
 ):
-    """Thêm khối chữ ký (Ô số 7a, 7b, 7c)."""
+    print("  common: Adding Signature Block...")
     try:
         if use_table:
+            # ... (logic tạo bảng và cell_sig như cũ) ...
             sig_table = document.add_table(rows=1, cols=2)
             sig_table.autofit = False
             sig_table.allow_autofit = False
@@ -93,10 +100,10 @@ def add_signature_block(
             cell_sig = sig_table.cell(0, 1)
             cell_sig._element.clear_content()
             paragraph_container = cell_sig
-            sig_align = WD_ALIGN_PARAGRAPH.CENTER # Căn giữa trong ô phải
+            sig_align = WD_ALIGN_PARAGRAPH.CENTER
         else:
             paragraph_container = document
-            sig_align = alignment # Dùng alignment truyền vào nếu ko dùng table
+            sig_align = alignment
 
         if authority_signer:
             paragraph_auth = paragraph_container.add_paragraph()
@@ -118,20 +125,22 @@ def add_signature_block(
         paragraph_name = paragraph_container.add_paragraph()
         set_paragraph_format(paragraph_name, alignment=sig_align, space_after=Pt(0))
         add_run_with_format(paragraph_name, signer_name, size=FONT_SIZE_SIGN_NAME_14, bold=True)
+        print("  common: Added Signature Block OK.")
     except Exception as e:
-        print(f"Error adding Signature Block: {e}")
-        # Thêm lỗi vào doc để dễ debug nếu dùng table
-        if use_table:
-             cell_sig.add_paragraph(f"[Error Signature: {e}]")
-        else:
-             document.add_paragraph(f"[Error Signature: {e}]")
+        print(f"  ERROR in add_signature_block: {e}")
+        print(traceback.format_exc())
+        try:
+            # Thêm lỗi vào doc để dễ debug
+            container = cell_sig if use_table else document
+            container.add_paragraph(f"[Lỗi Chữ ký: {e}]")
+        except: pass
 
 
 def add_recipient_list(document, recipients):
-    """Thêm danh sách nơi nhận (Ô số 9b)."""
+    print("  common: Adding Recipient List...")
     try:
         paragraph_label = document.add_paragraph()
-        set_paragraph_format(paragraph_label, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(6), space_after=Pt(0)) # Giảm space_before
+        set_paragraph_format(paragraph_label, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(6), space_after=Pt(0))
         add_run_with_format(paragraph_label, "Nơi nhận:", size=FONT_SIZE_RECIPIENT_LABEL_12, bold=True, italic=True)
 
         if not recipients:
@@ -140,15 +149,14 @@ def add_recipient_list(document, recipients):
         for recipient in recipients:
             paragraph_rec = document.add_paragraph()
             set_paragraph_format(
-                paragraph_rec,
-                alignment=WD_ALIGN_PARAGRAPH.LEFT,
-                left_indent=Cm(0.7),
-                first_line_indent=Cm(-0.7),
-                space_before=Pt(0),
-                space_after=Pt(0),
-                line_spacing=1.0
+                paragraph_rec, alignment=WD_ALIGN_PARAGRAPH.LEFT,
+                left_indent=Cm(0.7), first_line_indent=Cm(-0.7),
+                space_before=Pt(0), space_after=Pt(0), line_spacing=1.0
             )
             add_run_with_format(paragraph_rec, recipient, size=FONT_SIZE_RECIPIENT_LIST_11, bold=False)
+        print("  common: Added Recipient List OK.")
     except Exception as e:
-        print(f"Error adding Recipient List: {e}")
-        document.add_paragraph(f"[Error Noi Nhan: {e}]")
+        print(f"  ERROR in add_recipient_list: {e}")
+        print(traceback.format_exc())
+        try: document.add_paragraph(f"[Lỗi Nơi nhận: {e}]")
+        except: pass
