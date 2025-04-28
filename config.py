@@ -35,7 +35,7 @@ Nội dung cần xử lý:
 MAX_AI_INPUT_LENGTH = 15000
 AI_RETRY_DELAY = 5
 
-# --- Hằng số định dạng chuẩn NĐ30 (Từ lần sửa trước) ---
+# --- Hằng số định dạng chuẩn NĐ30 ---
 FONT_NAME = 'Times New Roman'
 
 # Cỡ chữ chuẩn theo Phụ lục I, Mục V NĐ30
@@ -47,7 +47,7 @@ FONT_SIZE_TITLE_14 = Pt(14)
 FONT_SIZE_VV_12 = Pt(12)
 FONT_SIZE_VV_13 = Pt(13)
 FONT_SIZE_BODY_13 = Pt(13)
-FONT_SIZE_BODY_14 = Pt(14) # Chọn 14 làm mặc định cho nội dung
+FONT_SIZE_BODY_14 = Pt(14)
 FONT_SIZE_SIGN_AUTH_13 = Pt(13)
 FONT_SIZE_SIGN_AUTH_14 = Pt(14)
 FONT_SIZE_SIGN_NAME_13 = Pt(13)
@@ -56,18 +56,18 @@ FONT_SIZE_RECIPIENT_LABEL_12 = Pt(12)
 FONT_SIZE_RECIPIENT_LIST_11 = Pt(11)
 FONT_SIZE_OTHER_11 = Pt(11)
 
-# Lề trang chuẩn (Cm)
+# Lề trang chuẩn (Cm) - Đổi tên lại cho đúng
 MARGIN_TOP = Cm(2.0)
 MARGIN_BOTTOM = Cm(2.0)
-MARGIN_LEFT = Cm(3.0)
-MARGIN_RIGHT = Cm(1.5)
+MARGIN_LEFT_DEFAULT = Cm(3.0)  # << SỬA TÊN BIẾN
+MARGIN_RIGHT_DEFAULT = Cm(1.5) # << SỬA TÊN BIẾN
 
 # Lề trang đặc biệt
 MARGIN_LEFT_CONTRACT = Cm(3.0)
-MARGIN_RIGHT_CONTRACT = Cm(1.5)
+MARGIN_RIGHT_CONTRACT = Cm(1.5) # Giữ nguyên tên này nếu doc_formatter dùng nó
 
 # Thụt lề dòng đầu tiên chuẩn
-FIRST_LINE_INDENT = Cm(1.0) # Hoặc Cm(1.27)
+FIRST_LINE_INDENT = Cm(1.0)
 
 # Giãn dòng chuẩn
 LINE_SPACING_BODY = 1.5
