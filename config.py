@@ -3,9 +3,9 @@ import os
 from dotenv import load_dotenv
 from docx.shared import Pt, Cm
 
-load_dotenv() # Giữ lại để load biến môi trường
+load_dotenv()
 
-# --- Biến cấu hình AI và Ứng dụng (Từ file gốc của bạn) ---
+# --- Biến cấu hình AI và Ứng dụng ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_API_KEY_HERE_IF_NO_ENV")
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
 AI_PROMPT_TEMPLATE = """
@@ -38,7 +38,10 @@ AI_RETRY_DELAY = 5
 # --- Hằng số định dạng chuẩn NĐ30 ---
 FONT_NAME = 'Times New Roman'
 
-# Cỡ chữ chuẩn theo Phụ lục I, Mục V NĐ30
+# *** THÊM LẠI FONT_SIZE_DEFAULT ***
+FONT_SIZE_DEFAULT = Pt(14) # Chọn 14pt làm mặc định vì NĐ30 cho phép 13-14
+
+# Cỡ chữ chi tiết theo Phụ lục I, Mục V NĐ30
 FONT_SIZE_HEADER_12 = Pt(12)
 FONT_SIZE_HEADER_13 = Pt(13)
 FONT_SIZE_MEDIUM_13 = Pt(13)
@@ -56,18 +59,19 @@ FONT_SIZE_RECIPIENT_LABEL_12 = Pt(12)
 FONT_SIZE_RECIPIENT_LIST_11 = Pt(11)
 FONT_SIZE_OTHER_11 = Pt(11)
 
-# Lề trang chuẩn (Cm) - Đổi tên lại cho đúng
+# Lề trang chuẩn (Cm)
 MARGIN_TOP = Cm(2.0)
 MARGIN_BOTTOM = Cm(2.0)
-MARGIN_LEFT_DEFAULT = Cm(3.0)  # << SỬA TÊN BIẾN
-MARGIN_RIGHT_DEFAULT = Cm(1.5) # << SỬA TÊN BIẾN
+MARGIN_LEFT_DEFAULT = Cm(3.0)
+MARGIN_RIGHT_DEFAULT = Cm(1.5)
 
 # Lề trang đặc biệt
 MARGIN_LEFT_CONTRACT = Cm(3.0)
-MARGIN_RIGHT_CONTRACT = Cm(1.5) # Giữ nguyên tên này nếu doc_formatter dùng nó
+MARGIN_RIGHT_CONTRACT = Cm(1.5)
 
 # Thụt lề dòng đầu tiên chuẩn
 FIRST_LINE_INDENT = Cm(1.0)
 
 # Giãn dòng chuẩn
 LINE_SPACING_BODY = 1.5
+LINE_SPACING_DEFAULT = 1.5 # Thêm hằng số này nếu utils dùng
