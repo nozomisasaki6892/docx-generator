@@ -1,122 +1,154 @@
-# formatters/common_elements.py
+# common_elements.py
 import time
 from docx.shared import Pt, Cm, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from utils import set_paragraph_format, set_run_format, add_run_with_format
-from config import (FONT_SIZE_HEADER, FONT_SIZE_DEFAULT, FONT_SIZE_SMALL,
-                    FONT_SIZE_PLACE_DATE, FONT_SIZE_DOC_NUMBER, FONT_SIZE_SIGNATURE,
-                    FONT_SIZE_SIGNER_NAME, FONT_SIZE_RECIPIENT_LABEL)
+from utils import set_paragraph_format, set_run_format, add_run_with_format, add_paragraph_with_text
 
-def format_basic_header(document, data, doc_type):
-    issuing_org_parent = data.get("issuing_org_parent", None)
-    issuing_org = data.get("issuing_org", "TÊN CƠ QUAN/TỔ CHỨC").upper()
-    doc_number = data.get("doc_number", "Số:       /...") # Thêm khoảng trắng để đẩy ra
-    issuing_location = data.get("issuing_location", "Hà Nội")
-    current_date_str = time.strftime(f"ngày %d tháng %m năm %Y")
+# Lưu ý: Cần import các hằng số cỡ chữ từ config.py đã được chuẩn hóa theo NĐ30
+# Ví dụ: FONT_SIZE_12, FONT_SIZE_13, FONT_SIZE_14, FONT_SIZE_11,...
+# Tạm thời dùng Pt trực tiếp hoặc giả định hằng số
+FONT_SIZE_11 = Pt(11)
+FONT_SIZE_12 = Pt(12)
+FONT_SIZE_13 = Pt(13)
+FONT_SIZE_14 = Pt(14)
 
-    header_table = document.add_table(rows=1, cols=2)
-    header_table.autofit = False
-    header_table.allow_autofit = False
-    # Điều chỉnh độ rộng để đẩy khối QH/TN và Ngày tháng sang phải
-    header_table.columns[0].width = Inches(2.9)
-    header_table.columns[1].width = Inches(3.3)
-
-    # --- Cột trái: Cơ quan ban hành và Số hiệu ---
-    cell_org = header_table.cell(0, 0)
-    cell_org._element.clear_content()
-    align_org_cell = WD_ALIGN_PARAGRAPH.CENTER
-
-    # Cơ quan chủ quản (nếu có)
-    if issuing_org_parent:
-        p_org_parent = cell_org.add_paragraph(issuing_org_parent.upper())
-        set_paragraph_format(p_org_parent, alignment=align_org_cell, space_after=Pt(0))
-        set_run_format(p_org_parent.runs[0], size=FONT_SIZE_HEADER, bold=False) # Cỡ 12-13, không đậm
-
-    # Tên cơ quan ban hành
-    p_org = cell_org.add_paragraph(issuing_org)
-    set_paragraph_format(p_org, alignment=align_org_cell, space_after=Pt(0))
-    set_run_format(p_org.runs[0], size=FONT_SIZE_HEADER, bold=True) # Cỡ 12-13, đậm
-
-    # Dấu gạch chân dưới tên CQBH
-    p_line_org = cell_org.add_paragraph("_______") # Hoặc dùng shape nếu muốn đẹp hơn
-    set_paragraph_format(p_line_org, alignment=align_org_cell, space_after=Pt(6))
-    set_run_format(p_line_org.runs[0], size=FONT_SIZE_HEADER, bold=True)
-
-    # Số hiệu văn bản (căn trái dưới dòng kẻ)
-    p_skh = cell_org.add_paragraph(doc_number)
-    # Căn lề trái trong ô nhưng vẫn thuộc cột trái của layout tổng thể
-    set_paragraph_format(p_skh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(6), space_after=Pt(0))
-    set_run_format(p_skh.runs[0], size=FONT_SIZE_DOC_NUMBER) # Cỡ 13
-
-    # --- Cột phải: Quốc hiệu, Tiêu ngữ và Ngày tháng ---
-    cell_qh_tn = header_table.cell(0, 1)
-    cell_qh_tn._element.clear_content()
-
+def add_quoc_hieu_tieu_ngu(table_cell):
+    """Thêm Quốc hiệu và Tiêu ngữ vào ô bảng được chỉ định (Ô số 1)."""
     # Quốc hiệu
-    p_qh = cell_qh_tn.add_paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
-    set_paragraph_format(p_qh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    set_run_format(p_qh.runs[0], size=FONT_SIZE_HEADER, bold=True) # Cỡ 12-13, đậm
+    paragraph_qh = table_cell.add_paragraph()
+    set_paragraph_format(paragraph_qh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+    add_run_with_format(paragraph_qh, "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", size=FONT_SIZE_13, bold=True) # Cỡ 12-13
 
     # Tiêu ngữ
-    p_tn = cell_qh_tn.add_paragraph("Độc lập - Tự do - Hạnh phúc")
-    set_paragraph_format(p_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
-    set_run_format(p_tn.runs[0], size=Pt(13), bold=True) # Cỡ 13-14, đậm
+    paragraph_tn = table_cell.add_paragraph()
+    set_paragraph_format(paragraph_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+    add_run_with_format(paragraph_tn, "Độc lập - Tự do - Hạnh phúc", size=FONT_SIZE_14, bold=True) # Cỡ 13-14
 
-    # Dấu gạch chân dưới tiêu ngữ
-    p_line_tn = cell_qh_tn.add_paragraph("-" * 20) # Điều chỉnh độ dài gạch
-    set_paragraph_format(p_line_tn, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(6))
-    set_run_format(p_line_tn.runs[0], size=Pt(13), bold=True)
-
-    # Địa danh, ngày tháng (căn phải dưới dòng kẻ)
-    p_ddnt = cell_qh_tn.add_paragraph(f"{issuing_location}, {current_date_str}")
-    # Căn phải trong ô, thuộc cột phải của layout tổng thể
-    set_paragraph_format(p_ddnt, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(6), space_after=Pt(6))
-    set_run_format(p_ddnt.runs[0], size=FONT_SIZE_PLACE_DATE, italic=True) # Cỡ 13-14, nghiêng
-
-    # Thêm khoảng trắng sau header
-    document.add_paragraph()
+    # Đường kẻ dưới Tiêu ngữ
+    paragraph_line = table_cell.add_paragraph()
+    set_paragraph_format(paragraph_line, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0)) # Giảm space_after
+    # Điều chỉnh độ dài dòng kẻ phù hợp
+    add_run_with_format(paragraph_line, "_______________", size=FONT_SIZE_14, bold=True)
 
 
-def format_signature_block(document, data):
-    signer_title = data.get("signer_title", "CHỨC VỤ NGƯỜI KÝ").upper()
-    signer_name = data.get("signer_name", "Người Ký")
-    authority_signer = data.get("authority_signer", None) # VD: KT. BỘ TRƯỞNG, TM. ỦY BAN NHÂN DÂN
-    signer_note = data.get("signer_note", None) # VD: (Đã ký)
+def add_ten_co_quan_ban_hanh(table_cell, ten_co_quan_chu_quan, ten_co_quan_ban_hanh):
+    """Thêm Tên cơ quan chủ quản (nếu có) và Tên cơ quan ban hành (Ô số 2)."""
+    # Cơ quan chủ quản (nếu có)
+    if ten_co_quan_chu_quan:
+        paragraph_cqcq = table_cell.add_paragraph()
+        set_paragraph_format(paragraph_cqcq, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+        # Cỡ chữ 12-13, đứng, không đậm
+        add_run_with_format(paragraph_cqcq, ten_co_quan_chu_quan.upper(), size=FONT_SIZE_13, bold=False)
 
-    sig_paragraph = document.add_paragraph()
-    # Căn phải toàn bộ khối chữ ký
-    set_paragraph_format(sig_paragraph, alignment=WD_ALIGN_PARAGRAPH.RIGHT, space_before=Pt(6), space_after=Pt(0), line_spacing=1.0) # Giãn dòng đơn
+    # Tên cơ quan ban hành
+    paragraph_cqbh = table_cell.add_paragraph()
+    set_paragraph_format(paragraph_cqbh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+    # Cỡ chữ 12-13, đứng, đậm
+    add_run_with_format(paragraph_cqbh, ten_co_quan_ban_hanh.upper(), size=FONT_SIZE_13, bold=True)
 
-    # Thẩm quyền ký (nếu có)
+    # Đường kẻ dưới tên CQBH
+    paragraph_line = table_cell.add_paragraph()
+    set_paragraph_format(paragraph_line, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0))
+    # Độ dài 1/3-1/2 dòng chữ CQBH, đậm
+    add_run_with_format(paragraph_line, "________", size=FONT_SIZE_13, bold=True) # Điều chỉnh độ dài
+
+
+def add_so_ky_hieu(table_cell, so_van_ban, ky_hieu_van_ban):
+    """Thêm Số, ký hiệu văn bản vào ô bảng (Ô số 3)."""
+    paragraph_skh = table_cell.add_paragraph()
+    set_paragraph_format(paragraph_skh, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0)) # Giảm space_after
+    # Chữ "Số:" đứng, thường, cỡ 13
+    add_run_with_format(paragraph_skh, f"Số: {so_van_ban}/", size=FONT_SIZE_13, bold=False)
+    # Ký hiệu đứng, hoa, cỡ 13
+    add_run_with_format(paragraph_skh, ky_hieu_van_ban, size=FONT_SIZE_13, bold=False, uppercase=True)
+
+
+def add_dia_danh_thoi_gian(table_cell, dia_danh, ngay, thang, nam):
+    """Thêm Địa danh, thời gian ban hành vào ô bảng (Ô số 4)."""
+    paragraph_ddtg = table_cell.add_paragraph()
+    set_paragraph_format(paragraph_ddtg, alignment=WD_ALIGN_PARAGRAPH.CENTER, space_after=Pt(0)) # Giảm space_after
+    # Cỡ 13-14, nghiêng
+    thoi_gian_str = f"ngày {ngay:02d} tháng {thang:02d} năm {nam}"
+    add_run_with_format(paragraph_ddtg, f"{dia_danh}, {thoi_gian_str}", size=FONT_SIZE_13, italic=True)
+
+
+def add_signature_block(
+    document, # Hoặc table_cell nếu đặt trong bảng
+    authority_signer=None, # "TM.", "KT.", "TL.", "TUQ.", "Q."
+    signer_title="",
+    signer_name="",
+    signer_note=None, # "(Đã ký)"
+    alignment=WD_ALIGN_PARAGRAPH.RIGHT, # Mặc định căn phải
+    use_table=True # Dùng table để dễ căn chỉnh hơn
+):
+    """Thêm khối chữ ký (Ô số 7a, 7b, 7c)."""
+
+    if use_table:
+        # Tạo bảng 1 hàng 2 cột để đẩy khối ký sang phải
+        sig_table = document.add_table(rows=1, cols=2)
+        sig_table.autofit = False
+        sig_table.allow_autofit = False
+        # Điều chỉnh độ rộng cột tùy ý, ví dụ cột trái trống, cột phải chứa chữ ký
+        sig_table.columns[0].width = Inches(3.0) # Cột trống
+        sig_table.columns[1].width = Inches(3.3) # Cột chữ ký
+        cell_sig = sig_table.cell(0, 1)
+        cell_sig._element.clear_content() # Xóa mọi nội dung cũ trong ô
+        paragraph_container = cell_sig # Thêm paragraph vào ô này
+        alignment = WD_ALIGN_PARAGRAPH.CENTER # Căn giữa trong ô bên phải
+    else:
+        paragraph_container = document # Thêm paragraph trực tiếp vào document
+        # Cần tính toán left_indent nếu không dùng table để đẩy sang phải
+
+    # Thẩm quyền ký (nếu có) - Ô 7a
     if authority_signer:
-        # Cần thêm khoảng trắng để đẩy chức vụ xuống dòng sau nếu thẩm quyền quá dài
-        run_auth = add_run_with_format(sig_paragraph, authority_signer.upper() + "\n", size=FONT_SIZE_SIGNATURE, bold=True)
+        paragraph_auth = paragraph_container.add_paragraph()
+        set_paragraph_format(paragraph_auth, alignment=alignment, space_after=Pt(0))
+        # Cỡ 13-14, Đứng, Đậm, IN HOA
+        add_run_with_format(paragraph_auth, authority_signer.upper(), size=FONT_SIZE_14, bold=True)
 
-    # Chức vụ người ký
-    run_title = add_run_with_format(sig_paragraph, signer_title + "\n", size=FONT_SIZE_SIGNATURE, bold=True)
+    # Chức vụ người ký - Ô 7a
+    paragraph_title = paragraph_container.add_paragraph()
+    set_paragraph_format(paragraph_title, alignment=alignment, space_after=Pt(0))
+    # Cỡ 13-14, Đứng, Đậm, IN HOA
+    add_run_with_format(paragraph_title, signer_title.upper(), size=FONT_SIZE_14, bold=True)
 
-    # Ghi chú dưới chức vụ (nếu có)
+    # Ghi chú ký (nếu có)
     if signer_note:
-        run_note = add_run_with_format(sig_paragraph, f"{signer_note}\n", size=Pt(11), italic=True)
+        paragraph_note = paragraph_container.add_paragraph()
+        set_paragraph_format(paragraph_note, alignment=alignment, space_after=Pt(0))
+        add_run_with_format(paragraph_note, signer_note, size=FONT_SIZE_11, italic=True) # Ví dụ cỡ 11
 
-    # Khoảng trống ký tên (Thêm nhiều \n hơn)
-    sig_paragraph.add_run("\n\n\n\n\n")
+    # Khoảng trống ký tên - Ô 7c (giả lập bằng dòng trống)
+    paragraph_space = paragraph_container.add_paragraph("\n\n\n\n") # Khoảng 4-5 dòng trống
+    set_paragraph_format(paragraph_space, alignment=alignment, space_after=Pt(0))
 
-    # Tên người ký
-    run_name = add_run_with_format(sig_paragraph, signer_name, size=FONT_SIZE_SIGNER_NAME, bold=True)
+    # Tên người ký - Ô 7b
+    paragraph_name = paragraph_container.add_paragraph()
+    set_paragraph_format(paragraph_name, alignment=alignment, space_after=Pt(0))
+    # Cỡ 13-14, Đứng, Đậm
+    add_run_with_format(paragraph_name, signer_name, size=FONT_SIZE_14, bold=True)
 
-def format_recipient_list(document, data):
-    recipients = data.get("recipients", [])
-    # Cung cấp giá trị mặc định nếu recipients rỗng hoặc không có
+
+def add_recipient_list(document, recipients):
+    """Thêm danh sách nơi nhận (Ô số 9b)."""
+    paragraph_label = document.add_paragraph()
+    # Sát lề trái, cỡ 12, nghiêng, đậm
+    set_paragraph_format(paragraph_label, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(6), space_after=Pt(0))
+    add_run_with_format(paragraph_label, "Nơi nhận:", size=FONT_SIZE_12, bold=True, italic=True)
+
     if not recipients:
-        recipients = ["- Như trên;", "- Lưu: VT, ...;"]
-
-    p_nhan_label = document.add_paragraph()
-    set_paragraph_format(p_nhan_label, alignment=WD_ALIGN_PARAGRAPH.LEFT, space_before=Pt(12), space_after=Pt(0))
-    add_run_with_format(p_nhan_label, "Nơi nhận:", size=FONT_SIZE_RECIPIENT_LABEL, bold=True, italic=True) # Cỡ 12
+        recipients = ["- Như Điều ...;", "- Lưu: VT, ..."] # Mặc định nếu list rỗng
 
     for recipient in recipients:
-        p_rec = document.add_paragraph()
-        # Thụt lề dòng đầu cho các mục nơi nhận
-        set_paragraph_format(p_rec, alignment=WD_ALIGN_PARAGRAPH.LEFT, left_indent=Cm(0.7), first_line_indent=Cm(-0.7), space_before=Pt(0), space_after=Pt(0), line_spacing=1.0)
-        add_run_with_format(p_rec, recipient, size=FONT_SIZE_SMALL) # Cỡ 11
+        paragraph_rec = document.add_paragraph()
+        # Đầu dòng có gạch ngang, sát lề trái, cỡ 11, đứng
+        set_paragraph_format(
+            paragraph_rec,
+            alignment=WD_ALIGN_PARAGRAPH.LEFT,
+            left_indent=Cm(0.7),  # Thụt vào để gạch đầu dòng thẳng hàng
+            first_line_indent=Cm(-0.7), # Hanging indent
+            space_before=Pt(0),
+            space_after=Pt(0),
+            line_spacing=1.0 # Giãn dòng đơn cho nơi nhận
+        )
+        add_run_with_format(paragraph_rec, recipient, size=FONT_SIZE_11, bold=False)

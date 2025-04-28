@@ -1,58 +1,157 @@
 # utils.py
-from docx.shared import Pt, Cm
+from docx.shared import Pt, Cm, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.oxml.ns import qn
-from config import FONT_NAME, FONT_SIZE_DEFAULT, FIRST_LINE_INDENT, LINE_SPACING_DEFAULT
+from config import FONT_NAME # Giả sử config.py chỉ chứa FONT_NAME
 
-def set_paragraph_format(paragraph, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, left_indent=Cm(0), first_line_indent=Cm(0), space_before=Pt(0), space_after=Pt(6), line_spacing=LINE_SPACING_DEFAULT, line_spacing_rule=WD_LINE_SPACING.MULTIPLE, keep_together=False, keep_with_next=False, page_break_before=False):
-    """Thiết lập định dạng chung cho một Paragraph."""
-    p_format = paragraph.paragraph_format
-    p_format.alignment = alignment
-    p_format.left_indent = left_indent
-    p_format.right_indent = Cm(0)
-    p_format.first_line_indent = first_line_indent
-    p_format.space_before = space_before
-    p_format.space_after = space_after
-    p_format.line_spacing = line_spacing
-    p_format.line_spacing_rule = line_spacing_rule
-    p_format.keep_together = keep_together
-    p_format.keep_with_next = keep_with_next
-    p_format.page_break_before = page_break_before
+def set_paragraph_format(
+    paragraph,
+    alignment=None,
+    left_indent=None,
+    right_indent=None,
+    first_line_indent=None,
+    space_before=None,
+    space_after=None,
+    line_spacing=None,
+    line_spacing_rule=WD_LINE_SPACING.MULTIPLE,
+    keep_together=None,
+    keep_with_next=None,
+    page_break_before=None,
+    widow_control=True
+):
+    """Thiết lập định dạng cho đối tượng Paragraph."""
+    paragraph_format = paragraph.paragraph_format
+    if alignment is not None:
+        paragraph_format.alignment = alignment
+    if left_indent is not None:
+        paragraph_format.left_indent = left_indent
+    if right_indent is not None:
+        paragraph_format.right_indent = right_indent
+    if first_line_indent is not None:
+        paragraph_format.first_line_indent = first_line_indent
+    if space_before is not None:
+        paragraph_format.space_before = space_before
+    if space_after is not None:
+        paragraph_format.space_after = space_after
+    if line_spacing is not None:
+        paragraph_format.line_spacing = line_spacing
+        paragraph_format.line_spacing_rule = line_spacing_rule
+    if keep_together is not None:
+        paragraph_format.keep_together = keep_together
+    if keep_with_next is not None:
+        paragraph_format.keep_with_next = keep_with_next
+    if page_break_before is not None:
+        paragraph_format.page_break_before = page_break_before
+    if widow_control is not None:
+        paragraph_format.widow_control = widow_control
 
-def set_run_format(run, font_name=FONT_NAME, size=FONT_SIZE_DEFAULT, bold=False, italic=False, underline=False, uppercase=False):
-    """Thiết lập định dạng cho một Run (phần text)."""
+def set_run_format(
+    run,
+    font_name=FONT_NAME,
+    size=None,
+    bold=None,
+    italic=None,
+    underline=None,
+    uppercase=None
+):
+    """Thiết lập định dạng cho đối tượng Run."""
     font = run.font
     font.name = font_name
-    try:
-        run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
-    except Exception as e:
-        print(f"Warning: Không thể set eastAsia font - {e}")
-    font.size = size
-    font.bold = bold
-    font.italic = italic
-    font.underline = underline
-    run.text = run.text.upper() if uppercase else run.text
+    # Đảm bảo font chữ áp dụng cho ký tự Đông Á (quan trọng cho tiếng Việt)
+    run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
+    if size is not None:
+        font.size = size
+    if bold is not None:
+        font.bold = bold
+    if italic is not None:
+        font.italic = italic
+    if underline is not None:
+        font.underline = underline
+    if uppercase is not None:
+        run.text = run.text.upper()
 
-def add_run_with_format(paragraph, text, size=FONT_SIZE_DEFAULT, bold=False, italic=False, uppercase=False, font_name=FONT_NAME):
-    """Thêm một Run vào Paragraph và định dạng nó."""
+def add_run_with_format(
+    paragraph,
+    text,
+    font_name=FONT_NAME,
+    size=None,
+    bold=None,
+    italic=None,
+    underline=None,
+    uppercase=None
+):
+    """Thêm một Run vào Paragraph và áp dụng định dạng."""
     run = paragraph.add_run(text)
-    set_run_format(run, font_name=font_name, size=size, bold=bold, italic=italic, uppercase=uppercase)
+    set_run_format(run, font_name, size, bold, italic, underline, uppercase)
     return run
 
-# Thêm các hàm tiện ích khác nếu cần (ví dụ: tạo bảng, chèn ảnh...)
-def add_centered_text(document, text, font_name=FONT_NAME, size=FONT_SIZE_DEFAULT,
-                      bold=False, italic=False, underline=False, color_rgb=None,
-                      uppercase=False, space_before=Pt(0), space_after=Pt(6), line_spacing=1.0):
-    """
-    Thêm một đoạn văn bản căn giữa vào tài liệu với định dạng tùy chỉnh.
-    """
-    p = document.add_paragraph()
-    set_paragraph_format(p, alignment=WD_ALIGN_PARAGRAPH.CENTER,
-                         first_line_indent=Cm(0),
-                         space_before=space_before,
-                         space_after=space_after,
-                         line_spacing=line_spacing)
-    run_text = text.upper() if uppercase else text
-    run = p.add_run(run_text)
-    set_run_format(run, font_name=font_name, size=size, bold=bold, italic=italic, underline=underline)
-    return p
+def add_paragraph_with_text(
+    document,
+    text,
+    alignment=None,
+    left_indent=None,
+    right_indent=None,
+    first_line_indent=None,
+    space_before=None,
+    space_after=None,
+    line_spacing=None,
+    line_spacing_rule=WD_LINE_SPACING.MULTIPLE,
+    keep_together=None,
+    keep_with_next=None,
+    page_break_before=None,
+    widow_control=True,
+    font_name=FONT_NAME,
+    size=None,
+    bold=None,
+    italic=None,
+    underline=None,
+    uppercase=None
+):
+    """Thêm một Paragraph với text và định dạng đầy đủ."""
+    paragraph = document.add_paragraph()
+    set_paragraph_format(
+        paragraph, alignment, left_indent, right_indent, first_line_indent,
+        space_before, space_after, line_spacing, line_spacing_rule,
+        keep_together, keep_with_next, page_break_before, widow_control
+    )
+    add_run_with_format(
+        paragraph, text, font_name, size, bold, italic, underline, uppercase
+    )
+    return paragraph
+
+def apply_standard_margins(document):
+    """Áp dụng lề trang chuẩn theo Nghị định 30."""
+    section = document.sections[0]
+    section.page_width = Cm(21.0)
+    section.page_height = Cm(29.7)
+    section.top_margin = Cm(2.0)    # Tối thiểu 20mm
+    section.bottom_margin = Cm(2.0) # Tối thiểu 20mm
+    section.left_margin = Cm(3.0)   # Tối thiểu 30mm
+    section.right_margin = Cm(1.5)  # Tối thiểu 15mm
+
+def apply_contract_margins(document):
+    """Áp dụng lề trang cho Hợp đồng (ví dụ)."""
+    section = document.sections[0]
+    section.page_width = Cm(21.0)
+    section.page_height = Cm(29.7)
+    section.top_margin = Cm(2.0)
+    section.bottom_margin = Cm(2.0)
+    section.left_margin = Cm(3.0) # Giữ nguyên lề trái rộng
+    section.right_margin = Cm(1.5) # Có thể điều chỉnh nếu cần
+
+def apply_landscape_margins(document, top=1.5, bottom=1.5, left=1.5, right=1.5):
+    """Áp dụng lề trang cho trang ngang (ví dụ Bằng tốt nghiệp)."""
+    section = document.sections[0]
+    section.orientation = 1 # WD_ORIENTATION.LANDSCAPE
+    section.page_width = Cm(29.7)
+    section.page_height = Cm(21.0)
+    section.top_margin = Cm(top)
+    section.bottom_margin = Cm(bottom)
+    section.left_margin = Cm(left)
+    section.right_margin = Cm(right)
+
+def add_horizontal_line(paragraph, length_chars=20):
+    """Thêm một dòng kẻ ngang đơn giản."""
+    # Cách này đơn giản nhưng không đẹp bằng shape
+    run = paragraph.add_run('_' * length_chars)
+    set_run_format(run, bold=True) # Theo NĐ30, dòng kẻ đậm
